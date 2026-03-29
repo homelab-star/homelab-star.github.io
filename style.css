@@ -16,6 +16,9 @@
   --link:        #e8b86d;
   --link-hover:  #f5d898;
   --red:         #f85149;
+  --green:       #3fb950;
+  --green-dim:   #238636;
+  --green-hi:    #56d364;
   --font: 'JetBrains Mono', 'Cascadia Code', 'Fira Code', 'SF Mono', 'Consolas', monospace;
   --header-h:    44px;
   --fact-h:      48px;
@@ -40,6 +43,9 @@ html[data-theme="light"] {
   --link:       #a86800;
   --link-hover: #7c4f00;
   --red:        #cf222e;
+  --green:      #1a7f37;
+  --green-dim:  #116329;
+  --green-hi:   #2da44e;
 }
 
 /* Smooth transition when switching themes — only active for 350 ms */
@@ -544,6 +550,169 @@ html[data-theme="light"] .tag-entity.selected { color: var(--text); border-color
   letter-spacing: .1em;
   padding: 0 2px;
   user-select: none;
+}
+
+/* ── Stocks toggle button ─────────────────────────────────────────── */
+.stocks-toggle-btn {
+  background: transparent;
+  border: 1px solid var(--border2);
+  color: var(--text2);
+  font-size: .78rem;
+  letter-spacing: .08em;
+  padding: 5px 13px;
+  border-radius: var(--radius);
+  font-family: var(--font);
+  transition: all .2s;
+  cursor: pointer;
+}
+.stocks-toggle-btn:hover { color: var(--green); border-color: var(--green); }
+.stocks-toggle-btn.active {
+  background: var(--green-dim);
+  color: #fff;
+  border-color: var(--green-dim);
+  font-weight: 600;
+}
+
+/* ── Stocks slide panel ───────────────────────────────────────────── */
+.stocks-panel {
+  position: fixed;
+  top: 0;
+  right: calc(-1 * var(--panel-w) - 2px);
+  width: var(--panel-w);
+  height: 100vh;
+  background: var(--bg2);
+  border-left: 1px solid var(--border2);
+  z-index: 200;
+  display: flex;
+  flex-direction: column;
+  transition: right .28s cubic-bezier(.4,0,.2,1);
+  box-shadow: -6px 0 32px rgba(0,0,0,.55);
+}
+.stocks-panel.open { right: 0; }
+
+.stocks-panel-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 14px 18px 12px;
+  border-bottom: 1px solid var(--border);
+  background: var(--bg);
+  flex-shrink: 0;
+}
+.stocks-panel-header .section-label { margin-bottom: 0; }
+.stocks-panel-header-actions { display: flex; align-items: center; gap: 8px; }
+
+/* Ticker cloud section (fixed top) */
+.stocks-tickers-section {
+  flex-shrink: 0;
+  max-height: 32%;
+  overflow-y: auto;
+  padding: 14px 18px;
+  border-bottom: 1px solid var(--border2);
+  background: var(--bg3);
+}
+.stocks-tickers-section .section-label {
+  margin-bottom: 8px;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.ticker-cloud {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  align-items: center;
+}
+
+/* Ticker pills — green */
+.ticker-pill {
+  display: inline-flex;
+  align-items: center;
+  font-size: .72rem;
+  font-weight: 600;
+  letter-spacing: .04em;
+  padding: 3px 10px;
+  border-radius: 20px;
+  border: 1px solid var(--green-dim);
+  color: var(--green);
+  background: transparent;
+  cursor: pointer;
+  user-select: none;
+  white-space: nowrap;
+  transition: background .15s, color .15s, border-color .15s;
+  line-height: 1.4;
+}
+.ticker-pill:hover {
+  background: var(--green-dim);
+  color: #fff;
+  border-color: var(--green-dim);
+}
+.ticker-pill.selected {
+  background: var(--green);
+  color: #fff;
+  border-color: var(--green);
+  font-weight: 700;
+}
+html[data-theme="light"] .ticker-pill         { color: var(--green-dim); border-color: var(--green-dim); }
+html[data-theme="light"] .ticker-pill:hover   { background: var(--green-dim); color: #fff; }
+html[data-theme="light"] .ticker-pill.selected { background: var(--green); color: #fff; border-color: var(--green); }
+
+/* Mention badge inside pill */
+.ticker-count {
+  font-size: .6rem;
+  font-weight: 400;
+  opacity: .75;
+  margin-left: 4px;
+}
+
+/* Scrollable posts list */
+.stocks-posts {
+  flex: 1;
+  overflow-y: auto;
+  padding: 10px 18px;
+}
+
+/* Individual stock post */
+.stock-post-item {
+  padding: 9px 0;
+  border-bottom: 1px solid var(--border);
+}
+.stock-post-item:last-child { border-bottom: none; }
+
+.stock-post-top {
+  display: flex;
+  align-items: baseline;
+  gap: 8px;
+  margin-bottom: 3px;
+}
+
+.stock-subreddit {
+  font-size: .65rem;
+  color: var(--green);
+  font-weight: 600;
+  letter-spacing: .04em;
+  flex-shrink: 0;
+}
+
+.stock-score {
+  font-size: .65rem;
+  color: var(--text3);
+  flex-shrink: 0;
+}
+
+.stock-post-title {
+  display: block;
+  font-size: .88rem;
+  line-height: 1.42;
+  margin-bottom: 3px;
+  color: var(--accent);
+}
+.stock-post-title:hover { color: var(--accent-hi); text-decoration: underline; }
+
+.stock-post-meta {
+  font-size: .72rem;
+  color: var(--text3);
 }
 
 /* ── Responsive tweaks ────────────────────────────────────────────── */

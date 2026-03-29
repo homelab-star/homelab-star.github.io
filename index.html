@@ -22,6 +22,9 @@
     <div class="header-right">
       <span class="refresh-indicator" id="refreshTimer" title="Next auto-refresh"></span>
       <button class="theme-btn" id="themeBtn" onclick="toggleTheme()" title="Switch to light mode">☀</button>
+      <button class="stocks-toggle-btn" id="stocksToggleBtn" onclick="toggleStocksPanel()">
+        ▲ Stocks
+      </button>
       <button class="ai-toggle-btn" id="aiToggleBtn" onclick="toggleAIPanel()">
         ◈ AI News
       </button>
@@ -101,7 +104,7 @@
   </div><!-- /main-layout -->
 
   <!-- ── AI News Slide Panel ────────────────────────────────────── -->
-  <div class="overlay" id="overlay" onclick="toggleAIPanel()"></div>
+  <div class="overlay" id="overlay" onclick="closeAllPanels()"></div>
 
   <aside class="ai-panel" id="aiPanel">
     <div class="ai-panel-header">
@@ -123,6 +126,30 @@
     <!-- Articles list (below tags, scrollable) -->
     <div class="ai-articles" id="aiNewsList">
       <div class="loading-msg">Loading AI articles…</div>
+    </div>
+  </aside>
+
+  <!-- ── Stocks Slide Panel ─────────────────────────────────────── -->
+  <aside class="stocks-panel" id="stocksPanel">
+    <div class="stocks-panel-header">
+      <span class="section-label">TRENDING STOCKS</span>
+      <div class="stocks-panel-header-actions">
+        <button class="icon-btn" onclick="loadStocksPanel(true)" title="Refresh">↺</button>
+        <button class="icon-btn close-btn" onclick="toggleStocksPanel()">✕</button>
+      </div>
+    </div>
+
+    <!-- Ticker cloud (top, fixed) -->
+    <div class="stocks-tickers-section">
+      <div class="section-label">HOT TICKERS
+        <button class="tag-clear-btn" id="tickerClearBtn" onclick="clearTickerFilter()" style="display:none">✕ clear</button>
+      </div>
+      <div class="ticker-cloud" id="tickerCloud"></div>
+    </div>
+
+    <!-- Posts list (scrollable) -->
+    <div class="stocks-posts" id="stocksPostsList">
+      <div class="loading-msg">Loading posts…</div>
     </div>
   </aside>
 

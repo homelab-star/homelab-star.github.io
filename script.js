@@ -82,11 +82,14 @@ const ALL_REDDIT_SUBS = ['investing', 'stocks', 'realestate', 'options', 'wallst
 
 /* ── State ────────────────────────────────────────────────────────── */
 const cache = { news: {}, reddit: {} };
-let aiCache      = null;
-let aiPanelOpen  = false;
-let activeTag    = null;
-let refreshTimer = null;
-let countdown    = REFRESH_MS / 1000;
+let aiCache        = null;
+let aiPanelOpen    = false;
+let activeTag      = null;
+let stocksCache    = null;
+let stocksPanelOpen = false;
+let activeTicker   = null;
+let refreshTimer   = null;
+let countdown      = REFRESH_MS / 1000;
 
 /* ════════════════════════════════════════════════════════════════════
    INIT
@@ -359,11 +362,25 @@ function toggleListExpand(btn) {
    AI SLIDE PANEL
 ════════════════════════════════════════════════════════════════════ */
 function toggleAIPanel() {
+  if (stocksPanelOpen) _closeStocks();   // close sibling panel first
   aiPanelOpen = !aiPanelOpen;
   document.getElementById('aiPanel').classList.toggle('open', aiPanelOpen);
   document.getElementById('overlay').classList.toggle('open', aiPanelOpen);
   document.getElementById('aiToggleBtn').classList.toggle('active', aiPanelOpen);
   if (aiPanelOpen && !aiCache) loadAINews(false);
+}
+
+function _closeAI() {
+  aiPanelOpen = false;
+  document.getElementById('aiPanel').classList.remove('open');
+  document.getElementById('overlay').classList.remove('open');
+  document.getElementById('aiToggleBtn').classList.remove('active');
+}
+
+function closeAllPanels() {
+  if (aiPanelOpen)     _closeAI();
+  if (stocksPanelOpen) _closeStocks();
+  document.getElementById('overlay').classList.remove('open');
 }
 
 async function loadAINews(force = false) {
@@ -562,6 +579,246 @@ function clearTagFilter() {
   if (clearBtn) clearBtn.style.display = 'none';
   const listEl = document.getElementById('aiNewsList');
   if (aiCache && listEl) renderAINews(listEl, aiCache, null);
+}
+
+/* ════════════════════════════════════════════════════════════════════
+   STOCKS SLIDE PANEL
+════════════════════════════════════════════════════════════════════ */
+
+const STOCKS_SUBS    = ['stocks', 'wallstreetbets', 'coveredcalls', 'options', 'stockstobuytoday'];
+const STOCKS_INITIAL = 8;
+
+// Common non-ticker uppercase words to ignore
+const TICKER_BLOCKLIST = new Set([
+  'A','I','AM','AN','AT','BE','BY','DO','GO','IF','IN','IS','IT','NO','OF',
+  'ON','OR','SO','TO','UP','US','WE',
+  'ARE','BUT','CAN','DID','FOR','GET','GOT','HAD','HAS','HOW','ITS','LET',
+  'MAY','NEW','NOT','NOW','OFF','OUR','OWN','PUT','SAY','THE','TOO','TWO',
+  'USE','WAS','WHO','WHY','YET','YOU',
+  'AI','AR','DD','DR','EV','HR','IR','IV','OI','PR','RE','TA','TD','TL','VR',
+  'ALL','AND','ANY','APE','ATH','ATL','ATM','BIG','BUY','CEO','CFO','COO',
+  'CPI','CTO','DCA','EOD','EOW','EPS','ETF','FED','FYI','GDP','IMO','IPO',
+  'IRS','ITM','LOL','MOD','NFA','OTC','OTM','PDT','ROI','SEC','TOS','WTF',
+  'WSB','YOLO','HODL','FOMO','DYOR','TLDR','AFAIK','IIRC',
+  'BULL','BEAR','CALL','CASH','DEBT','DOWN','FEEL','FUND','GAIN','GOOD',
+  'HELP','HIGH','HOLD','JUST','LIKE','LONG','LOOK','LOSS','LOST','MAKE',
+  'MANY','MOON','MOVE','MUCH','NEED','NEXT','NYSE','ONLY','OVER','PLAY',
+  'POST','PUTS','RATE','REAL','SELL','SOLD','SOME','SAID','SAME','SAYS',
+  'SEEM','SELL','SOLD','SOME','STOCK','THEN','THEY','THIS','THAT','TIME',
+  'TOOK','TOOK','TRUE','WANT','WEEK','WITH','YEAR','YOUR','ZERO',
+  'TRADE','PRICE','SHARE','MONEY','DAILY','FIRST','EVERY','GOING','LARGE',
+  'LEARN','MONTH','STILL','THINK','UNTIL','WATCH','WEEKS','WHICH','WOULD',
+  'AFTER','AGAIN','AMONG','BASED','BELOW','COULD','EARLY','FINAL','GIVEN',
+  'GREAT','HEDGE','INDEX','KNOWN','LARGE','LATER','LEVEL','LOWER','MAJOR',
+  'MIGHT','NEVER','OTHER','RIGHT','SINCE','SMALL','SHOWN','TOTAL','UNDER',
+  'USING','VALUE','WHERE','WHILE','WHOSE','TODAY','MARKET','BANKS','RATES',
+  'FUNDS','BONDS','DELTA','SHORT','GAINS','PLANS','YEARS','THANKS','PLEASE',
+  'SAAS','CLOUD','FREE','FAKE','BEST','LAST','BOTH','EACH','LESS','MORE',
+  'MOST','ONCE','ONLY','OPEN','OVER','PAST','SOON','SUCH','THAN','THEN',
+  'THEM','THUS','UPON','VERY','WELL','WIDE','WITH','ZERO',
+]);
+
+function extractTickers(text) {
+  const found = new Map();
+  // Primary: explicit $TICKER notation (most reliable — common in WSB/options)
+  for (const m of text.matchAll(/\$([A-Z]{1,5})\b/g)) {
+    found.set(m[1], (found.get(m[1]) || 0) + 3);  // weight higher
+  }
+  // Secondary: standalone ALL-CAPS 2–5 letters not in blocklist
+  for (const m of text.matchAll(/\b([A-Z]{2,5})\b/g)) {
+    const t = m[1];
+    if (!TICKER_BLOCKLIST.has(t)) {
+      found.set(t, (found.get(t) || 0) + 1);
+    }
+  }
+  return [...found.keys()];
+}
+
+/** Fetch one subreddit's hot posts via proxy chain */
+async function fetchSubredditRaw(sub) {
+  const url      = `https://www.reddit.com/r/${sub}/hot.json?limit=50&raw_json=1`;
+  const attempts = [
+    () => fetch(`${ALLORIGINS}${encodeURIComponent(url)}`).then(r => r.json()).then(w => JSON.parse(w.contents)),
+    () => fetch(`${CORSPROXY}${encodeURIComponent(url)}`).then(r => r.json()),
+    () => fetch(url).then(r => r.json()),
+  ];
+  for (const fn of attempts) {
+    try {
+      const data  = await fn();
+      const posts = (data?.data?.children || [])
+        .map(c => c.data)
+        .filter(p => !p.stickied)
+        .slice(0, 50);
+      if (posts.length) return posts.map(p => ({ ...p, _sub: sub }));
+    } catch { /* try next proxy */ }
+  }
+  return [];
+}
+
+function toggleStocksPanel() {
+  if (aiPanelOpen) _closeAI();              // close sibling panel first
+  stocksPanelOpen = !stocksPanelOpen;
+  document.getElementById('stocksPanel').classList.toggle('open', stocksPanelOpen);
+  document.getElementById('overlay').classList.toggle('open', stocksPanelOpen);
+  document.getElementById('stocksToggleBtn').classList.toggle('active', stocksPanelOpen);
+  if (stocksPanelOpen && !stocksCache) loadStocksPanel(false);
+}
+
+/** Internal close helper (no toggle — just close) */
+function _closeStocks() {
+  stocksPanelOpen = false;
+  document.getElementById('stocksPanel').classList.remove('open');
+  document.getElementById('overlay').classList.remove('open');
+  document.getElementById('stocksToggleBtn').classList.remove('active');
+}
+
+async function loadStocksPanel(force = false) {
+  const listEl  = document.getElementById('stocksPostsList');
+  const cloudEl = document.getElementById('tickerCloud');
+  if (!listEl || !cloudEl) return;
+
+  // ① Memory hit
+  if (stocksCache && !force) {
+    renderStockTickers(cloudEl, stocksCache);
+    renderStockPosts(listEl, stocksCache, activeTicker);
+    return;
+  }
+
+  // ② localStorage hit → show instantly, background refresh
+  if (!force) {
+    const stored = lsGet('stocks');
+    if (stored) {
+      stocksCache = stored;
+      renderStockTickers(cloudEl, stocksCache);
+      renderStockPosts(listEl, stocksCache, activeTicker);
+      loadStocksPanel(true);   // silent background refresh
+      return;
+    }
+  }
+
+  // ③ Full fetch
+  if (!stocksCache) {
+    listEl.innerHTML = `<div class="loading-msg">Fetching ${STOCKS_SUBS.length} subreddits…</div>`;
+    cloudEl.innerHTML = '';
+  }
+
+  const all = [];
+  for (const sub of STOCKS_SUBS) {
+    const posts = await fetchSubredditRaw(sub);
+    all.push(...posts);
+    await new Promise(r => setTimeout(r, 250));
+  }
+
+  if (!all.length) {
+    listEl.innerHTML = '<div class="loading-msg error">Could not load posts.</div>';
+    return;
+  }
+
+  // Dedupe by title, sort by score
+  const seen = new Set();
+  const deduped = all.filter(p => {
+    if (seen.has(p.title)) return false;
+    seen.add(p.title);
+    return true;
+  }).sort((a, b) => b.score - a.score);
+
+  stocksCache = deduped;
+  lsSet('stocks', deduped);
+  renderStockTickers(cloudEl, deduped);
+  renderStockPosts(listEl, deduped, activeTicker);
+}
+
+function renderStockTickers(el, posts) {
+  if (!posts.length) return;
+
+  // Count weighted ticker mentions across all post titles
+  const counts = new Map();
+  posts.forEach(p => {
+    extractTickers(p.title).forEach(t => {
+      counts.set(t, (counts.get(t) || 0) + 1);
+    });
+  });
+
+  // Require ≥2 posts, sort by count, top 35
+  const sorted = [...counts.entries()]
+    .filter(([, c]) => c >= 2)
+    .sort((a, b) => b[1] - a[1])
+    .slice(0, 35);
+
+  if (!sorted.length) {
+    el.innerHTML = '<span style="color:var(--text3);font-size:.78rem">No trending tickers detected</span>';
+    return;
+  }
+
+  el.innerHTML = sorted.map(([ticker, count]) =>
+    `<span class="ticker-pill" data-ticker="${ticker}"
+      title="${count} mention${count !== 1 ? 's' : ''}">$${ticker}<span class="ticker-count">${count}</span></span>`
+  ).join('');
+
+  el.querySelectorAll('.ticker-pill').forEach(t =>
+    t.addEventListener('click', () => filterByTicker(t))
+  );
+}
+
+function renderStockPosts(el, posts, filterTicker) {
+  let items = posts;
+  if (filterTicker) {
+    // Match $TICKER or standalone TICKER in title (case-insensitive)
+    const pat = new RegExp(`\\$${filterTicker}(?![A-Z])|(?<![A-Z])${filterTicker}(?![A-Z])`, 'i');
+    items = posts.filter(p => pat.test(p.title));
+  }
+
+  if (!items.length) {
+    el.innerHTML = '<div class="loading-msg">No posts match this ticker.</div>';
+    return;
+  }
+
+  const rows = items.map((p, i) => {
+    const isExtra = i >= STOCKS_INITIAL;
+    const sub     = p._sub || p.subreddit;
+    return `
+      <div class="stock-post-item${isExtra ? ' list-hidden' : ''}"${isExtra ? ' data-extra="true"' : ''}>
+        <div class="stock-post-top">
+          <span class="stock-subreddit">r/${esc(sub)}</span>
+          <span class="stock-score">▲ ${(p.score || 0).toLocaleString()}</span>
+        </div>
+        <a class="stock-post-title" href="https://reddit.com${esc(p.permalink)}" target="_blank" rel="noreferrer">${esc(p.title)}</a>
+        <div class="stock-post-meta">
+          ${timeAgo(p.created_utc * 1000)} · ${(p.num_comments || 0).toLocaleString()} comments
+        </div>
+      </div>
+    `;
+  }).join('');
+
+  const extra = items.length - STOCKS_INITIAL;
+  const btn   = extra > 0
+    ? `<button class="show-more-btn" onclick="toggleListExpand(this)">SHOW MORE (${extra} more) ↓</button>`
+    : '';
+  el.innerHTML = rows + btn;
+}
+
+function filterByTicker(tickerEl) {
+  const ticker = tickerEl.dataset.ticker;
+  const isSame = activeTicker === ticker;
+  activeTicker = isSame ? null : ticker;
+
+  document.querySelectorAll('.ticker-pill').forEach(t => t.classList.remove('selected'));
+  if (!isSame) tickerEl.classList.add('selected');
+
+  const clearBtn = document.getElementById('tickerClearBtn');
+  if (clearBtn) clearBtn.style.display = activeTicker ? 'inline-block' : 'none';
+
+  const listEl = document.getElementById('stocksPostsList');
+  if (stocksCache && listEl) renderStockPosts(listEl, stocksCache, activeTicker);
+}
+
+function clearTickerFilter() {
+  activeTicker = null;
+  document.querySelectorAll('.ticker-pill').forEach(t => t.classList.remove('selected'));
+  const clearBtn = document.getElementById('tickerClearBtn');
+  if (clearBtn) clearBtn.style.display = 'none';
+  const listEl = document.getElementById('stocksPostsList');
+  if (stocksCache && listEl) renderStockPosts(listEl, stocksCache, null);
 }
 
 /* ════════════════════════════════════════════════════════════════════
