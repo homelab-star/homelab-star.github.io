@@ -202,7 +202,7 @@ async function loadNews(tab, silent = false) {
   if (!silent || activeTab?.dataset.tab === tab) renderNews(el, fresh);
 }
 
-const LIST_INITIAL = 12;
+const LIST_INITIAL = 6;
 
 function renderNews(el, items) {
   if (!items.length) {
@@ -389,10 +389,10 @@ function renderAINews(el, items, filterWord) {
     el.innerHTML = '<div class="loading-msg error">No AI articles found.</div>';
     return;
   }
-  el.innerHTML = items.map((item, i) => {
+  const rows = items.map((item, i) => {
     const matches = !filterWord || item.title.toLowerCase().includes(filterWord);
     return `
-      <div class="ai-news-item${matches ? '' : ' dimmed'}">
+      <div class="ai-news-item${matches ? '' : ' dimmed'}${i >= LIST_INITIAL ? ' list-hidden' : ''}">
         <span class="ai-num">${String(i + 1).padStart(2, '0')}</span>
         <div class="ai-body">
           <a class="news-title" href="${esc(item.link)}" target="_blank" rel="noreferrer">${esc(item.title)}</a>
@@ -401,6 +401,11 @@ function renderAINews(el, items, filterWord) {
       </div>
     `;
   }).join('');
+  const extra = items.length - LIST_INITIAL;
+  const btn   = extra > 0
+    ? `<button class="show-more-btn" onclick="toggleListExpand(this)">SHOW MORE (${extra} more) ↓</button>`
+    : '';
+  el.innerHTML = rows + btn;
 }
 
 /* ── Tag Cloud ────────────────────────────────────────────────────── */
