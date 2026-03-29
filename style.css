@@ -474,32 +474,67 @@ button { font-family: var(--font); cursor: pointer; }
 .tag-cloud {
   display: flex;
   flex-wrap: wrap;
-  gap: 7px;
-  align-items: baseline;
+  gap: 6px;
+  align-items: center;
+}
+
+/* ── Tag pills — shared base ──────────────────────────────────────── */
+.tag {
+  display: inline-flex;
+  align-items: center;
+  font-size: .72rem;
+  font-weight: 500;
+  letter-spacing: .04em;
+  padding: 3px 10px;
+  border-radius: 20px;
+  border: 1px solid transparent;
+  cursor: pointer;
+  user-select: none;
+  white-space: nowrap;
+  transition: background .15s, color .15s, border-color .15s;
+  line-height: 1.4;
 }
 
 /* topic tags — warm amber (what's happening) */
-.tag {
+.tag-topic {
   color: var(--accent-dim);
-  cursor: pointer;
-  transition: color .15s;
-  line-height: 1.2;
-  user-select: none;
+  background: transparent;
+  border-color: var(--accent-dim);
 }
-.tag:hover  { color: var(--accent-hi); }
-.tag.selected { color: var(--accent-hi); font-weight: 600; }
+.tag-topic:hover {
+  color: var(--bg);
+  background: var(--accent-dim);
+  border-color: var(--accent-dim);
+}
+.tag-topic.selected {
+  color: var(--bg);
+  background: var(--accent);
+  border-color: var(--accent);
+  font-weight: 600;
+}
 
 /* entity tags — cooler blue-gray (who's involved) */
 .tag-entity {
   color: var(--text2);
+  background: transparent;
+  border-color: var(--border2);
 }
-.tag-entity:hover   { color: var(--text); }
-.tag-entity.selected { color: var(--text); font-weight: 600; }
+.tag-entity:hover {
+  color: var(--text);
+  background: var(--bg2);
+  border-color: var(--text2);
+}
+.tag-entity.selected {
+  color: var(--text);
+  background: var(--bg2);
+  border-color: var(--text);
+  font-weight: 600;
+}
 
 /* light theme overrides for entity tags */
-html[data-theme="light"] .tag-entity { color: var(--text3); }
-html[data-theme="light"] .tag-entity:hover  { color: var(--text2); }
-html[data-theme="light"] .tag-entity.selected { color: var(--text); }
+html[data-theme="light"] .tag-entity { color: var(--text3); border-color: var(--border); }
+html[data-theme="light"] .tag-entity:hover  { color: var(--text2); border-color: var(--border2); }
+html[data-theme="light"] .tag-entity.selected { color: var(--text); border-color: var(--text2); }
 
 .tag-separator {
   color: var(--border2);

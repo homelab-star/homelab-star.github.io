@@ -524,13 +524,13 @@ function renderTagCloud(el, items) {
     : '';
 
   el.innerHTML =
-    topicSized.map(({ tag, tier, count, size }) =>
-      `<span class="tag tag-${tier}" data-word="${tag}" style="font-size:${size}rem"
+    topicSized.map(({ tag, tier, count }) =>
+      `<span class="tag tag-${tier}" data-word="${tag}"
         title="${count} article${count !== 1 ? 's' : ''}">${tag}</span>`
     ).join('') +
     separator +
-    entitySized.map(({ tag, tier, count, size }) =>
-      `<span class="tag tag-${tier}" data-word="${tag}" style="font-size:${size}rem"
+    entitySized.map(({ tag, tier, count }) =>
+      `<span class="tag tag-${tier}" data-word="${tag}"
         title="${count} article${count !== 1 ? 's' : ''}">${tag}</span>`
     ).join('');
 
