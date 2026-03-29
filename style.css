@@ -478,6 +478,7 @@ button { font-family: var(--font); cursor: pointer; }
   align-items: baseline;
 }
 
+/* topic tags — warm amber (what's happening) */
 .tag {
   color: var(--accent-dim);
   cursor: pointer;
@@ -485,8 +486,30 @@ button { font-family: var(--font); cursor: pointer; }
   line-height: 1.2;
   user-select: none;
 }
-.tag:hover { color: var(--accent-hi); }
+.tag:hover  { color: var(--accent-hi); }
 .tag.selected { color: var(--accent-hi); font-weight: 600; }
+
+/* entity tags — cooler blue-gray (who's involved) */
+.tag-entity {
+  color: var(--text2);
+}
+.tag-entity:hover   { color: var(--text); }
+.tag-entity.selected { color: var(--text); font-weight: 600; }
+
+/* light theme overrides for entity tags */
+html[data-theme="light"] .tag-entity { color: var(--text3); }
+html[data-theme="light"] .tag-entity:hover  { color: var(--text2); }
+html[data-theme="light"] .tag-entity.selected { color: var(--text); }
+
+.tag-separator {
+  color: var(--border2);
+  font-size: .7rem;
+  cursor: default;
+  align-self: center;
+  letter-spacing: .1em;
+  padding: 0 2px;
+  user-select: none;
+}
 
 /* ── Responsive tweaks ────────────────────────────────────────────── */
 @media (max-width: 860px) {

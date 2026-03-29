@@ -414,75 +414,87 @@ function renderAINews(el, items, filterTag) {
   el.innerHTML = rows + btn;
 }
 
-/* ── Tag Cloud — curated taxonomy ────────────────────────────────── */
-// Each entry has a display tag and a regex to match against article titles.
-// Only entries that appear in ≥ MIN_TAG_COUNT articles are shown (max 25).
+/* ── Tag Cloud — landscape-first taxonomy ────────────────────────── */
+// tier: 'topic' = what's happening  |  'entity' = who's involved
+// Topics are sorted before entities so the landscape view is always first.
 const AI_TAXONOMY = [
-  // Labs / Companies
-  { tag: 'openai',       pat: /\bopenai\b/i },
-  { tag: 'anthropic',    pat: /\banthropic\b/i },
-  { tag: 'google',       pat: /\bgoogle\b/i },
-  { tag: 'meta',         pat: /\bmeta\b(?!\s*data)/i },
-  { tag: 'nvidia',       pat: /\bnvidia\b/i },
-  { tag: 'microsoft',    pat: /\bmicrosoft\b/i },
-  { tag: 'mistral',      pat: /\bmistral\b/i },
-  { tag: 'deepmind',     pat: /\bdeep.?mind\b/i },
-  { tag: 'apple',        pat: /\bapple\b/i },
-  { tag: 'xai',          pat: /\bx\.?ai\b/i },
-  { tag: 'cohere',       pat: /\bcohere\b/i },
-  { tag: 'huggingface',  pat: /\bhugging.?face\b/i },
-  { tag: 'perplexity',   pat: /\bperplexity\b/i },
-  // Models / Products
-  { tag: 'gpt',          pat: /\bgpt[-\s]?\d|\bgpt\b/i },
-  { tag: 'claude',       pat: /\bclaude\b/i },
-  { tag: 'gemini',       pat: /\bgemini\b/i },
-  { tag: 'llama',        pat: /\bllama\b/i },
-  { tag: 'grok',         pat: /\bgrok\b/i },
-  { tag: 'copilot',      pat: /\bcopilot\b/i },
-  { tag: 'deepseek',     pat: /\bdeepseek\b/i },
-  { tag: 'dall-e',       pat: /\bdall.?e\b/i },
-  { tag: 'sora',         pat: /\bsora\b/i },
-  // Concepts / Topics
-  { tag: 'agents',       pat: /\bagents?\b/i },
-  { tag: 'reasoning',    pat: /\breasoning\b/i },
-  { tag: 'multimodal',   pat: /\bmultimodal\b/i },
-  { tag: 'fine-tuning',  pat: /\bfine.?tun/i },
-  { tag: 'inference',    pat: /\binference\b/i },
-  { tag: 'rag',          pat: /\brag\b|\bretrieval.augmented/i },
-  { tag: 'open-source',  pat: /\bopen.?source\b/i },
-  { tag: 'robotics',     pat: /\brobotic|\bhumanoid\b/i },
-  { tag: 'chips',        pat: /\bchips?\b|\bsemiconductor|\bgpu\b|\btpu\b/i },
-  { tag: 'data-centers', pat: /\bdata.?center/i },
-  { tag: 'safety',       pat: /\bsafety\b|\balignment\b/i },
-  { tag: 'regulation',   pat: /\bregulat|\bpolicy\b/i },
-  { tag: 'benchmark',    pat: /\bbenchmark/i },
-  { tag: 'autonomous',   pat: /\bautonomous|\bself.driving\b/i },
+  // ── What's happening ─────────────────────────────────────────────
+  { tag: 'releases',    tier: 'topic',  pat: /\b(launch|released?|announc|introduc|unveil|debut|new model|rolls? out|ships?|available)\b/i },
+  { tag: 'agents',      tier: 'topic',  pat: /\b(agents?|agentic|autonomous agent|tool use|multi.agent)\b/i },
+  { tag: 'reasoning',   tier: 'topic',  pat: /\b(reason|thinking model|chain.of.thought|\bo1\b|\bo3\b|\br1\b|math\b|logic|problem.solv)\b/i },
+  { tag: 'open-source', tier: 'topic',  pat: /\b(open.source|open.weight|open model|weights? released|community model)\b/i },
+  { tag: 'research',    tier: 'topic',  pat: /\b(paper|study|research|benchmark|outperform|state.of.the.art|dataset|preprint|arxiv)\b/i },
+  { tag: 'safety',      tier: 'topic',  pat: /\b(safety|alignment|jailbreak|hallucin|bias|risk|harm|misuse|dangerous|red.team)\b/i },
+  { tag: 'regulation',  tier: 'topic',  pat: /\b(regulat|legislation|law\b|ban\b|policy|congress|senate|\beu\b|ftc|legal|court|lawsuit|govern|restrict)\b/i },
+  { tag: 'funding',     tier: 'topic',  pat: /\b(funding|investment|raises?|raised|valuation|\bbillion\b|\bmillion\b|venture|series [a-d]|ipo|acqui)\b/i },
+  { tag: 'hardware',    tier: 'topic',  pat: /\b(chip|gpu|tpu|data.?center|compute|semiconductor|hardware|inference chip|h100|gb200)\b/i },
+  { tag: 'multimodal',  tier: 'topic',  pat: /\b(multimodal|image gen|video gen|\baudio\b|vision model|text.to.image|text.to.video|sora|dall.e|midjourney|voice)\b/i },
+  { tag: 'coding',      tier: 'topic',  pat: /\b(cod(e|ing)|programming|developer|software engineer|devin|cursor|github copilot|ide)\b/i },
+  { tag: 'robotics',    tier: 'topic',  pat: /\b(robot|humanoid|physical ai|embodied|warehouse|manufacturing bot)\b/i },
+  { tag: 'jobs',        tier: 'topic',  pat: /\b(layoff|job cut|workforce|worker|replac(e|ing) jobs|automation.+work|employment)\b/i },
+  { tag: 'competition', tier: 'topic',  pat: /\b(vs\b|beats?|surpass|outperform|compet|race\b|rival|leaderboard|ahead of)\b/i },
+  // ── Who's making news ────────────────────────────────────────────
+  { tag: 'openai',      tier: 'entity', pat: /\bopenai\b/i },
+  { tag: 'anthropic',   tier: 'entity', pat: /\banthropic\b/i },
+  { tag: 'google',      tier: 'entity', pat: /\bgoogle\b/i },
+  { tag: 'meta',        tier: 'entity', pat: /\bmeta\b(?!\s*data)/i },
+  { tag: 'microsoft',   tier: 'entity', pat: /\bmicrosoft\b/i },
+  { tag: 'nvidia',      tier: 'entity', pat: /\bnvidia\b/i },
+  { tag: 'mistral',     tier: 'entity', pat: /\bmistral\b/i },
+  { tag: 'deepseek',    tier: 'entity', pat: /\bdeepseek\b/i },
+  { tag: 'xai',         tier: 'entity', pat: /\bx\.?ai\b|\bgrok\b/i },
+  { tag: 'apple',       tier: 'entity', pat: /\bapple\b/i },
+  { tag: 'huggingface', tier: 'entity', pat: /\bhugging.?face\b/i },
+  { tag: 'perplexity',  tier: 'entity', pat: /\bperplexity\b/i },
 ];
 
 function renderTagCloud(el, items) {
   if (!items.length) return;
 
-  // Count how many articles each taxonomy term appears in
-  const MIN_TAG_COUNT = Math.max(1, Math.floor(items.length / 12));
+  // Need ≥2 article mentions to surface a tag (avoids single-article noise)
+  const MIN_COUNT = Math.max(2, Math.floor(items.length / 20));
+
   const scored = AI_TAXONOMY
     .map(entry => ({ ...entry, count: items.filter(({ title }) => entry.pat.test(title)).length }))
-    .filter(({ count }) => count >= MIN_TAG_COUNT)
-    .sort((a, b) => b.count - a.count)
-    .slice(0, 25);
+    .filter(({ count }) => count >= MIN_COUNT);
 
-  if (!scored.length) {
+  // Sort: topics first (by count), then entities (by count)
+  const topics   = scored.filter(e => e.tier === 'topic').sort((a, b) => b.count - a.count);
+  const entities = scored.filter(e => e.tier === 'entity').sort((a, b) => b.count - a.count);
+  const final    = [...topics, ...entities].slice(0, 25);
+
+  if (!final.length) {
     el.innerHTML = '<span style="color:var(--text3);font-size:.78rem">No trending topics in current articles</span>';
     return;
   }
 
-  const max   = scored[0].count;
-  const min   = scored[scored.length - 1].count;
-  const range = max - min || 1;
+  // Size within each tier independently so topics & entities both scale nicely
+  const sizeWithin = (arr) => {
+    const max = arr[0]?.count || 1;
+    const min = arr[arr.length - 1]?.count || 1;
+    const r   = max - min || 1;
+    return arr.map(e => ({ ...e, size: (0.72 + ((e.count - min) / r) * 0.82).toFixed(2) }));
+  };
 
-  el.innerHTML = scored.map(({ tag, count }) => {
-    const size = (0.7 + ((count - min) / range) * 0.85).toFixed(2);
-    return `<span class="tag" data-word="${tag}" style="font-size:${size}rem" title="${count} article${count !== 1 ? 's' : ''}">${tag}</span>`;
-  }).join('');
+  const sized = [...sizeWithin(topics), ...sizeWithin(entities)].slice(0, 25);
+
+  // Insert a subtle separator between topic and entity sections
+  const topicSized  = sized.filter(e => e.tier === 'topic');
+  const entitySized = sized.filter(e => e.tier === 'entity');
+  const separator   = entitySized.length
+    ? `<span class="tag-separator" title="Who's making news">· · ·</span>`
+    : '';
+
+  el.innerHTML =
+    topicSized.map(({ tag, tier, count, size }) =>
+      `<span class="tag tag-${tier}" data-word="${tag}" style="font-size:${size}rem"
+        title="${count} article${count !== 1 ? 's' : ''}">${tag}</span>`
+    ).join('') +
+    separator +
+    entitySized.map(({ tag, tier, count, size }) =>
+      `<span class="tag tag-${tier}" data-word="${tag}" style="font-size:${size}rem"
+        title="${count} article${count !== 1 ? 's' : ''}">${tag}</span>`
+    ).join('');
 
   el.querySelectorAll('.tag').forEach(t => t.addEventListener('click', () => filterByTag(t)));
 }
