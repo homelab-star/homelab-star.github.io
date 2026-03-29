@@ -243,7 +243,7 @@ function renderNews(el, items) {
     return;
   }
   const rows = items.map((item, i) => `
-    <div class="news-item${i >= LIST_INITIAL ? ' list-hidden' : ''}">
+    <div class="news-item${i >= LIST_INITIAL ? ' list-hidden' : ''}"${i >= LIST_INITIAL ? ' data-extra="true"' : ''}>
       <a class="news-title" href="${esc(item.link)}" target="_blank" rel="noreferrer">${esc(item.title)}</a>
       <div class="news-meta">${timeAgo(item.pubDate)} · ${domain(item.link)}</div>
     </div>
@@ -317,7 +317,7 @@ function renderReddit(el, posts) {
   const rows = posts.map((p, i) => {
     const isLink = !p.is_self;
     return `
-      <div class="reddit-item${i >= LIST_INITIAL ? ' list-hidden' : ''}">
+      <div class="reddit-item${i >= LIST_INITIAL ? ' list-hidden' : ''}"${i >= LIST_INITIAL ? ' data-extra="true"' : ''}>
         <a class="reddit-title" href="https://reddit.com${esc(p.permalink)}" target="_blank" rel="noreferrer">
           ${esc(p.title)}${isLink ? ' <span class="ext-icon">↗</span>' : ''}
         </a>
@@ -340,16 +340,17 @@ function renderReddit(el, posts) {
 /** Toggle show-more expansion in the parent container */
 function toggleListExpand(btn) {
   const container = btn.parentElement;
-  const hidden    = container.querySelectorAll('.list-hidden');
   const expanded  = btn.dataset.expanded === 'true';
   if (expanded) {
-    hidden.forEach(el => el.classList.add('list-hidden'));
-    const count = container.querySelectorAll('.list-hidden').length;
-    btn.textContent  = `SHOW MORE (${count} more) ↓`;
+    // Collapse: re-hide all items that were originally extra (marked at render time)
+    const extras = container.querySelectorAll('[data-extra="true"]');
+    extras.forEach(el => el.classList.add('list-hidden'));
+    btn.textContent      = `SHOW MORE (${extras.length} more) ↓`;
     btn.dataset.expanded = 'false';
   } else {
+    // Expand: reveal all currently hidden items
     container.querySelectorAll('.list-hidden').forEach(el => el.classList.remove('list-hidden'));
-    btn.textContent  = 'SHOW LESS ↑';
+    btn.textContent      = 'SHOW LESS ↑';
     btn.dataset.expanded = 'true';
   }
 }
@@ -432,11 +433,12 @@ function renderAINews(el, items, filterTag) {
   // Filter active → hide non-matches; no filter → hide after LIST_INITIAL
   const rows = items.map((item, i) => {
     const matches = !filterPat || filterPat.test(item.title);
+    const isExtra = !filterPat && i >= LIST_INITIAL;
     const hidden  = filterPat
-      ? (matches ? '' : ' list-hidden')            // filtered: hide non-matches
-      : (i >= LIST_INITIAL ? ' list-hidden' : ''); // unfiltered: hide after 6
+      ? (matches ? '' : ' list-hidden')   // filtered: hide non-matches
+      : (isExtra  ? ' list-hidden' : ''); // unfiltered: hide after 6
     return `
-      <div class="ai-news-item${hidden}">
+      <div class="ai-news-item${hidden}"${isExtra ? ' data-extra="true"' : ''}>
         <span class="ai-num">${String(i + 1).padStart(2, '0')}</span>
         <div class="ai-body">
           <a class="news-title" href="${esc(item.link)}" target="_blank" rel="noreferrer">${esc(item.title)}</a>
