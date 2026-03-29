@@ -442,13 +442,13 @@ button { font-family: var(--font); cursor: pointer; }
 
 .ai-body { flex: 1; min-width: 0; }
 
-/* Fixed tag section at bottom */
+/* Fixed tag section at top */
 .ai-tags-section {
   flex-shrink: 0;
   max-height: 32%;
   overflow-y: auto;
   padding: 14px 18px;
-  border-top: 1px solid var(--border2);
+  border-bottom: 1px solid var(--border2);
   background: var(--bg3);
 }
 .ai-tags-section .section-label {

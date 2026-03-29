@@ -429,12 +429,14 @@ function renderAINews(el, items, filterTag) {
   const entry     = filterTag ? AI_TAXONOMY.find(t => t.tag === filterTag) : null;
   const filterPat = entry ? entry.pat : (filterTag ? new RegExp(filterTag.replace(/-/g, '.?'), 'i') : null);
 
-  // When a filter is active: show ALL items (expand list), just dim non-matches
+  // Filter active → hide non-matches; no filter → hide after LIST_INITIAL
   const rows = items.map((item, i) => {
     const matches = !filterPat || filterPat.test(item.title);
-    const hidden  = !filterTag && i >= LIST_INITIAL ? ' list-hidden' : '';
+    const hidden  = filterPat
+      ? (matches ? '' : ' list-hidden')            // filtered: hide non-matches
+      : (i >= LIST_INITIAL ? ' list-hidden' : ''); // unfiltered: hide after 6
     return `
-      <div class="ai-news-item${matches ? '' : ' dimmed'}${hidden}">
+      <div class="ai-news-item${hidden}">
         <span class="ai-num">${String(i + 1).padStart(2, '0')}</span>
         <div class="ai-body">
           <a class="news-title" href="${esc(item.link)}" target="_blank" rel="noreferrer">${esc(item.title)}</a>
