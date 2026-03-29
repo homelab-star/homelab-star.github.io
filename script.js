@@ -585,7 +585,7 @@ function clearTagFilter() {
    STOCKS SLIDE PANEL
 ════════════════════════════════════════════════════════════════════ */
 
-const STOCKS_SUBS    = ['stocks', 'wallstreetbets', 'coveredcalls', 'options', 'stockstobuytoday'];
+const STOCKS_SUBS    = ['stocks', 'wallstreetbets', 'coveredcalls', 'options', 'stockstobuytoday', 'valueinvesting', 'dividends'];
 const STOCKS_INITIAL = 8;
 
 // Common non-ticker uppercase words to ignore
