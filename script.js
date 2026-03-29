@@ -110,7 +110,9 @@ function refreshAll() {
   cache.news   = {};
   cache.reddit = {};
   aiCache      = null;
+  stocksCache  = null;
   activeTag    = null;
+  activeTicker = null;
   loadFact();
 
   // Active tabs: re-render from localStorage immediately, bg-fetch fresh data
@@ -118,7 +120,8 @@ function refreshAll() {
   const rTab = document.querySelector('.reddit-tabs .tab.active');
   if (nTab) loadNews(nTab.dataset.tab);
   if (rTab) loadReddit(rTab.dataset.sub);
-  if (aiPanelOpen) loadAINews(true);
+  if (aiPanelOpen)     loadAINews(true);
+  if (stocksPanelOpen) loadStocksPanel(true);
 
   // Re-warm all other tabs in background
   setTimeout(prefetchAll, 2000);
@@ -126,6 +129,10 @@ function refreshAll() {
 }
 
 /* ── Prefetch all tabs silently ───────────────────────────────────── */
+// Flags to prevent duplicate concurrent fetches for the heavy panels
+let aiFetching     = false;
+let stocksFetching = false;
+
 function prefetchAll() {
   const activeNews   = document.querySelector('.news-tabs .tab.active')?.dataset.tab   || 'world';
   const activeReddit = document.querySelector('.reddit-tabs .tab.active')?.dataset.sub || 'investing';
@@ -140,10 +147,26 @@ function prefetchAll() {
     .filter(s => s !== activeReddit)
     .forEach((sub, i) => setTimeout(() => loadReddit(sub, true), 1000 + i * 500));
 
-  // AI panel: warm from localStorage only (network fetch is heavy — waits for panel open)
-  if (!aiCache) {
+  // AI panel: localStorage hit → populate cache; else background fetch after reddit finishes
+  if (!aiCache && !aiFetching) {
     const stored = lsGet('ai');
-    if (stored) aiCache = stored;
+    if (stored) {
+      aiCache = stored;
+    } else {
+      // Start after all reddit prefetches finish (~1s + 7*500ms ≈ 5s)
+      setTimeout(() => { if (!aiCache && !aiFetching) loadAINews(false); }, 6000);
+    }
+  }
+
+  // Stocks panel: localStorage hit → populate cache; else background fetch after AI
+  if (!stocksCache && !stocksFetching) {
+    const stored = lsGet('stocks');
+    if (stored) {
+      stocksCache = stored;
+    } else {
+      // Start after AI panel fetch finishes (~6s + AI fetch ~3s ≈ 9s)
+      setTimeout(() => { if (!stocksCache && !stocksFetching) loadStocksPanel(false); }, 10000);
+    }
   }
 }
 
@@ -367,7 +390,7 @@ function toggleAIPanel() {
   document.getElementById('aiPanel').classList.toggle('open', aiPanelOpen);
   document.getElementById('overlay').classList.toggle('open', aiPanelOpen);
   document.getElementById('aiToggleBtn').classList.toggle('active', aiPanelOpen);
-  if (aiPanelOpen && !aiCache) loadAINews(false);
+  if (aiPanelOpen) loadAINews(false);    // renders from cache instantly if pre-warmed
 }
 
 function _closeAI() {
@@ -389,7 +412,7 @@ async function loadAINews(force = false) {
   if (!listEl || !cloudEl) return;
 
   // ① In-memory hit
-  if (aiCache && !force) { renderAINews(listEl, aiCache); return; }
+  if (aiCache && !force) { renderAINews(listEl, aiCache); renderTagCloud(cloudEl, aiCache); return; }
 
   // ② localStorage hit → show instantly, then refresh in background
   if (!force) {
@@ -403,39 +426,48 @@ async function loadAINews(force = false) {
     }
   }
 
-  // ③ Fetch — only show progress spinner if nothing is currently displayed
-  if (!aiCache) {
+  // ③ Fetch — guard against duplicate concurrent fetches
+  if (aiFetching) return;
+  aiFetching = true;
+
+  // Only show spinner if panel is open and nothing cached yet
+  if (!aiCache && aiPanelOpen) {
     activeTag = null;
     listEl.innerHTML  = `<div class="loading-msg">Fetching AI articles… (0 / ${FEEDS.ai.length})</div>`;
     cloudEl.innerHTML = '';
   }
 
-  const all = [];
-  for (let i = 0; i < FEEDS.ai.length; i++) {
-    if (!aiCache) listEl.innerHTML = `<div class="loading-msg">Fetching AI articles… (${i + 1} / ${FEEDS.ai.length})</div>`;
-    const items = await fetchRSS(FEEDS.ai[i], 15);
-    all.push(...items);
-    if (i < FEEDS.ai.length - 1) await new Promise(r => setTimeout(r, 180));
+  try {
+    const all = [];
+    for (let i = 0; i < FEEDS.ai.length; i++) {
+      if (!aiCache && aiPanelOpen)
+        listEl.innerHTML = `<div class="loading-msg">Fetching AI articles… (${i + 1} / ${FEEDS.ai.length})</div>`;
+      const items = await fetchRSS(FEEDS.ai[i], 15);
+      all.push(...items);
+      if (i < FEEDS.ai.length - 1) await new Promise(r => setTimeout(r, 180));
+    }
+    // Filter to AI-relevant articles only
+    const aiTerms = /\b(ai|llm|gpt|llama|gemini|claude|mistral|openai|anthropic|deepmind|chatgpt|copilot|artificial intelligence|machine learning|deep learning|neural|language model|transformer|inference|fine.?tun|rag|agentic|agent|diffusion|multimodal|foundation model|hugging.?face|nvidia|compute|chip|datacenter|robotics|autonomous)\b/i;
+    const aiFiltered = all.filter(item => aiTerms.test(item.title));
+    const merged = aiFiltered.length >= 15 ? aiFiltered : all;
+    merged.sort((a, b) => new Date(b.pubDate) - new Date(a.pubDate));
+    const seen = new Set();
+    const deduped = merged.filter(item => {
+      if (!item.title || seen.has(item.title)) return false;
+      seen.add(item.title);
+      return true;
+    });
+    aiCache = deduped.slice(0, 50);
+    lsSet('ai', aiCache);
+  } finally {
+    aiFetching = false;
   }
-  // Filter to AI-relevant articles only
-  const aiTerms = /\b(ai|llm|gpt|llama|gemini|claude|mistral|openai|anthropic|deepmind|chatgpt|copilot|artificial intelligence|machine learning|deep learning|neural|language model|transformer|inference|fine.?tun|rag|agentic|agent|diffusion|multimodal|foundation model|hugging.?face|nvidia|compute|chip|datacenter|robotics|autonomous)\b/i;
-  const aiFiltered = all.filter(item => aiTerms.test(item.title));
 
-  // If keyword filter is too aggressive, fall back to all items
-  const merged = aiFiltered.length >= 15 ? aiFiltered : all;
-
-  merged.sort((a, b) => new Date(b.pubDate) - new Date(a.pubDate));
-  const seen = new Set();
-  const items = merged.filter(item => {
-    if (!item.title || seen.has(item.title)) return false;
-    seen.add(item.title);
-    return true;
-  });
-  aiCache = items.slice(0, 50);
-  lsSet('ai', aiCache);
-
-  renderAINews(listEl, aiCache);
-  renderTagCloud(cloudEl, aiCache);
+  // Only update DOM if panel is open
+  if (aiPanelOpen) {
+    renderAINews(listEl, aiCache);
+    renderTagCloud(cloudEl, aiCache);
+  }
 }
 
 function renderAINews(el, items, filterTag) {
@@ -704,7 +736,7 @@ function toggleStocksPanel() {
   document.getElementById('stocksPanel').classList.toggle('open', stocksPanelOpen);
   document.getElementById('overlay').classList.toggle('open', stocksPanelOpen);
   document.getElementById('stocksToggleBtn').classList.toggle('active', stocksPanelOpen);
-  if (stocksPanelOpen && !stocksCache) loadStocksPanel(false);
+  if (stocksPanelOpen) loadStocksPanel(false);  // renders from cache instantly if pre-warmed
 }
 
 /** Internal close helper (no toggle — just close) */
@@ -737,37 +769,47 @@ async function loadStocksPanel(force = false) {
     }
   }
 
-  // ③ Full fetch
-  if (!stocksCache) {
+  // ③ Full fetch — guard against duplicate concurrent fetches
+  if (stocksFetching) return;
+  stocksFetching = true;
+
+  // Only show spinner if panel is open and nothing cached yet
+  if (!stocksCache && stocksPanelOpen) {
     listEl.innerHTML = `<div class="loading-msg">Fetching ${STOCKS_SUBS.length} subreddits…</div>`;
     cloudEl.innerHTML = '';
     const sentEl = document.getElementById('stocksSentiment');
     if (sentEl) sentEl.innerHTML = '';
   }
 
-  const all = [];
-  for (const sub of STOCKS_SUBS) {
-    const posts = await fetchSubredditRaw(sub);
-    all.push(...posts);
-    await new Promise(r => setTimeout(r, 250));
+  try {
+    const all = [];
+    for (const sub of STOCKS_SUBS) {
+      const posts = await fetchSubredditRaw(sub);
+      all.push(...posts);
+      await new Promise(r => setTimeout(r, 250));
+    }
+
+    if (all.length) {
+      const seen = new Set();
+      const deduped = all.filter(p => {
+        if (seen.has(p.title)) return false;
+        seen.add(p.title);
+        return true;
+      }).sort((a, b) => b.score - a.score);
+      stocksCache = deduped;
+      lsSet('stocks', deduped);
+    }
+  } finally {
+    stocksFetching = false;
   }
 
-  if (!all.length) {
-    listEl.innerHTML = '<div class="loading-msg error">Could not load posts.</div>';
+  if (!stocksCache) {
+    if (stocksPanelOpen) listEl.innerHTML = '<div class="loading-msg error">Could not load posts.</div>';
     return;
   }
 
-  // Dedupe by title, sort by score
-  const seen = new Set();
-  const deduped = all.filter(p => {
-    if (seen.has(p.title)) return false;
-    seen.add(p.title);
-    return true;
-  }).sort((a, b) => b.score - a.score);
-
-  stocksCache = deduped;
-  lsSet('stocks', deduped);
-  renderAllStocks(cloudEl, listEl, deduped);
+  // Only update DOM if panel is open
+  if (stocksPanelOpen) renderAllStocks(cloudEl, listEl, stocksCache);
 }
 
 /** Render tickers + sentiment + posts in one shot */
