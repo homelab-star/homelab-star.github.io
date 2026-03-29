@@ -1,0 +1,130 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Dashboard</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet" />
+  <link rel="stylesheet" href="style.css" />
+</head>
+<body>
+
+  <!-- ── Header ─────────────────────────────────────────────────── -->
+  <header class="header">
+    <div class="header-left">
+      <span class="logo">⊞</span>
+      <nav>
+        <a href="#" class="nav-link active">Home</a>
+      </nav>
+    </div>
+    <div class="header-right">
+      <span class="refresh-indicator" id="refreshTimer" title="Next auto-refresh"></span>
+      <button class="ai-toggle-btn" id="aiToggleBtn" onclick="toggleAIPanel()">
+        ◈ AI News
+      </button>
+    </div>
+  </header>
+
+  <!-- ── Random Fact ─────────────────────────────────────────────── -->
+  <div class="fact-bar">
+    <span class="section-label">RANDOM FACT</span>
+    <span class="fact-text" id="factText">Loading…</span>
+    <button class="fact-refresh-btn" onclick="loadFact()" title="New fact">↺</button>
+  </div>
+
+  <!-- ── Main 2-column layout ───────────────────────────────────── -->
+  <div class="main-layout">
+
+    <!-- Left Sidebar: Bookmarks -->
+    <aside class="sidebar">
+      <div class="section-label">BOOKMARKS</div>
+
+      <ul class="bookmark-list">
+        <li><a href="https://finviz.com/" target="_blank" rel="noreferrer">Finviz <span class="ext">↗</span></a></li>
+        <li><a href="https://finance.yahoo.com/chart/NFLX" target="_blank" rel="noreferrer">Yahoo Chart <span class="ext">↗</span></a></li>
+        <li><a href="https://mail.google.com/mail/u/0/" target="_blank" rel="noreferrer">Gmail <span class="ext">↗</span></a></li>
+        <li><a href="https://www.redfin.com/" target="_blank" rel="noreferrer">Redfin <span class="ext">↗</span></a></li>
+        <li><a href="https://slickdeals.net/forums/forumdisplay.php?f=9" target="_blank" rel="noreferrer">Slickdeals <span class="ext">↗</span></a></li>
+      </ul>
+
+      <div class="bookmark-group-title" style="--group-color: hsl(10,70%,60%)">News</div>
+      <ul class="bookmark-list">
+        <li><a href="https://www.greatandhra.com/" target="_blank" rel="noreferrer">Greatandhra <span class="ext">↗</span></a></li>
+        <li><a href="https://www.gulte.com/" target="_blank" rel="noreferrer">Gulte <span class="ext">↗</span></a></li>
+        <li><a href="https://www.cnn.com/" target="_blank" rel="noreferrer">CNN <span class="ext">↗</span></a></li>
+        <li><a href="https://www.yahoo.com/" target="_blank" rel="noreferrer">Yahoo <span class="ext">↗</span></a></li>
+      </ul>
+
+      <div class="bookmark-group-title" style="--group-color: hsl(200,50%,60%)">Sports</div>
+      <ul class="bookmark-list">
+        <li><a href="https://www.reddit.com/" target="_blank" rel="noreferrer">Reddit <span class="ext">↗</span></a></li>
+        <li><a href="https://www.espncricinfo.com/" target="_blank" rel="noreferrer">Cricinfo <span class="ext">↗</span></a></li>
+        <li><a href="https://www.espn.com/" target="_blank" rel="noreferrer">ESPN <span class="ext">↗</span></a></li>
+      </ul>
+    </aside>
+
+    <!-- Center Panel -->
+    <main class="center">
+
+      <!-- ── News Widget ───────────────────────────────────────── -->
+      <section class="widget">
+        <div class="tabs news-tabs">
+          <button class="tab active" data-tab="world">WORLD / US</button>
+          <button class="tab" data-tab="tech">TECH / AI</button>
+          <button class="tab" data-tab="sports">SPORTS</button>
+        </div>
+        <div class="tab-body" id="newsContent">
+          <div class="loading-msg">Loading news…</div>
+        </div>
+      </section>
+
+      <!-- ── Reddit Widget ─────────────────────────────────────── -->
+      <section class="widget">
+        <div class="tabs reddit-tabs">
+          <button class="tab active" data-sub="investing">R/INVESTING</button>
+          <button class="tab" data-sub="stocks">R/STOCKS</button>
+          <button class="tab" data-sub="realestate">R/REALESTATE</button>
+          <button class="tab" data-sub="options">R/OPTIONS</button>
+          <button class="tab" data-sub="wallstreetbets">R/WSB</button>
+          <button class="tab" data-sub="selfhosted">R/SELFHOSTED</button>
+          <button class="tab" data-sub="homelab">R/HOMELAB</button>
+        </div>
+        <div class="tab-body" id="redditContent">
+          <div class="loading-msg">Loading posts…</div>
+        </div>
+      </section>
+
+    </main>
+  </div><!-- /main-layout -->
+
+  <!-- ── AI News Slide Panel ────────────────────────────────────── -->
+  <div class="overlay" id="overlay" onclick="toggleAIPanel()"></div>
+
+  <aside class="ai-panel" id="aiPanel">
+    <div class="ai-panel-header">
+      <span class="section-label">TOP AI NEWS</span>
+      <div class="ai-panel-header-actions">
+        <button class="icon-btn" onclick="loadAINews(true)" title="Refresh">↺</button>
+        <button class="icon-btn close-btn" onclick="toggleAIPanel()">✕</button>
+      </div>
+    </div>
+
+    <!-- Articles list (top, scrollable) -->
+    <div class="ai-articles" id="aiNewsList">
+      <div class="loading-msg">Loading AI articles…</div>
+    </div>
+
+    <!-- Tag cloud (bottom, fixed) -->
+    <div class="ai-tags-section">
+      <div class="section-label">TRENDING TOPICS
+        <button class="tag-clear-btn" id="tagClearBtn" onclick="clearTagFilter()" style="display:none">✕ clear</button>
+      </div>
+      <div class="tag-cloud" id="tagCloud"></div>
+    </div>
+  </aside>
+
+  <script src="script.js"></script>
+</body>
+</html>
