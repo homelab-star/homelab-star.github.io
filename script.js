@@ -618,6 +618,49 @@ const TICKER_BLOCKLIST = new Set([
   'THEM','THUS','UPON','VERY','WELL','WIDE','WITH','ZERO',
 ]);
 
+// ── Sentiment keyword patterns ─────────────────────────────────────
+const BULL_PAT = /\b(buy(?:ing)?|long(?:ing)?|bull(?:ish)?|calls?|moon(?:ing)?|rocket(?:ing)?|breakout|surge|surging|rally(?:ing)?|squeeze|beat(?:s|ing)?|upgrade|outperform|oversold|undervalued|cheap|accumulate|dip|bounce|recover(?:y|ing)?|pump(?:ing)?|rip(?:ping)?|strong(?:ly)?|bull\s*run|all.time.high|uptrend|going\s*up|higher|support|load(?:ing)?|bullrun|catalyst|breakout|explosive|skyrocket)\b/gi;
+
+const BEAR_PAT = /\b(sell(?:ing)?|short(?:ing)?|bear(?:ish)?|puts?|crash(?:ing)?|dump(?:ing)?|correction|tank(?:ing)?|decline|miss(?:ed)?|downgrade|underperform|overbought|overvalued|sell.?off|fall(?:ing)?|drop(?:ping)?|collapse|resistance|downtrend|going\s*down|lower|bag(?:holding)?|red|bleed(?:ing)?|drill(?:ing)?|weak(?:ness)?|avoid|bubble|overhyped|concerned|warning|danger|risk(?:y)?)\b/gi;
+
+/**
+ * Score a single post title: positive = bullish, negative = bearish.
+ * Weighted by log(score+2) so high-upvote posts count more.
+ */
+function postSentimentScore(post) {
+  const title    = post.title || '';
+  const weight   = Math.log2((post.score || 0) + 2);
+  const bullHits = (title.match(BULL_PAT) || []).length;
+  const bearHits = (title.match(BEAR_PAT) || []).length;
+  // Also factor in post flair: "Gain"/"DD"/"Bull" vs "Loss"/"Bear"
+  const flair    = (post.link_flair_text || '').toLowerCase();
+  const flairBull = /gain|bull|long|buy|rocket|moon/.test(flair) ? 1 : 0;
+  const flairBear = /loss|bear|short|sell|crash|put/.test(flair) ? 1 : 0;
+  return (bullHits + flairBull - bearHits - flairBear) * weight;
+}
+
+/**
+ * For each known ticker, aggregate sentiment across all posts that mention it.
+ * Returns Map<ticker, { bull, bear, net, posts[] }>
+ */
+function computeTickerSentiment(posts) {
+  const map = new Map();
+  posts.forEach(post => {
+    const tickers = extractTickers(post.title);
+    if (!tickers.length) return;
+    const score = postSentimentScore(post);
+    tickers.forEach(t => {
+      if (!map.has(t)) map.set(t, { bull: 0, bear: 0, net: 0, count: 0 });
+      const e = map.get(t);
+      e.count++;
+      if (score > 0) e.bull += score;
+      else if (score < 0) e.bear += Math.abs(score);
+      e.net += score;
+    });
+  });
+  return map;
+}
+
 function extractTickers(text) {
   const found = new Map();
   // Primary: explicit $TICKER notation (most reliable — common in WSB/options)
@@ -679,8 +722,7 @@ async function loadStocksPanel(force = false) {
 
   // ① Memory hit
   if (stocksCache && !force) {
-    renderStockTickers(cloudEl, stocksCache);
-    renderStockPosts(listEl, stocksCache, activeTicker);
+    renderAllStocks(cloudEl, listEl, stocksCache);
     return;
   }
 
@@ -689,8 +731,7 @@ async function loadStocksPanel(force = false) {
     const stored = lsGet('stocks');
     if (stored) {
       stocksCache = stored;
-      renderStockTickers(cloudEl, stocksCache);
-      renderStockPosts(listEl, stocksCache, activeTicker);
+      renderAllStocks(cloudEl, listEl, stocksCache);
       loadStocksPanel(true);   // silent background refresh
       return;
     }
@@ -700,6 +741,8 @@ async function loadStocksPanel(force = false) {
   if (!stocksCache) {
     listEl.innerHTML = `<div class="loading-msg">Fetching ${STOCKS_SUBS.length} subreddits…</div>`;
     cloudEl.innerHTML = '';
+    const sentEl = document.getElementById('stocksSentiment');
+    if (sentEl) sentEl.innerHTML = '';
   }
 
   const all = [];
@@ -724,8 +767,14 @@ async function loadStocksPanel(force = false) {
 
   stocksCache = deduped;
   lsSet('stocks', deduped);
-  renderStockTickers(cloudEl, deduped);
-  renderStockPosts(listEl, deduped, activeTicker);
+  renderAllStocks(cloudEl, listEl, deduped);
+}
+
+/** Render tickers + sentiment + posts in one shot */
+function renderAllStocks(cloudEl, listEl, posts) {
+  renderStockTickers(cloudEl, posts);
+  renderSentiment(document.getElementById('stocksSentiment'), posts);
+  renderStockPosts(listEl, posts, activeTicker);
 }
 
 function renderStockTickers(el, posts) {
@@ -757,6 +806,69 @@ function renderStockTickers(el, posts) {
 
   el.querySelectorAll('.ticker-pill').forEach(t =>
     t.addEventListener('click', () => filterByTicker(t))
+  );
+}
+
+function renderSentiment(el, posts) {
+  if (!el || !posts.length) return;
+
+  const sentMap = computeTickerSentiment(posts);
+
+  // Only consider tickers mentioned in ≥2 posts with a clear signal
+  const withSignal = [...sentMap.entries()]
+    .filter(([, e]) => e.count >= 2 && e.net !== 0)
+    .sort((a, b) => b[1].net - a[1].net);
+
+  const bullish = withSignal.filter(([, e]) => e.net > 0).slice(0, 6);
+  const bearish = withSignal.filter(([, e]) => e.net < 0)
+    .sort((a, b) => a[1].net - b[1].net)   // most negative first
+    .slice(0, 6);
+
+  if (!bullish.length && !bearish.length) {
+    el.innerHTML = '<div class="sentiment-empty">Not enough signal yet</div>';
+    return;
+  }
+
+  const makeRow = (ticker, e, dir) => {
+    const arrow = dir === 'up' ? '↑' : '↓';
+    const cls   = dir === 'up' ? 'sent-up' : 'sent-down';
+    const score = Math.round(Math.abs(e.net));
+    return `<div class="sent-row ${cls}" data-ticker="${ticker}"
+        title="${e.count} posts · score ${score}">
+      <span class="sent-arrow">${arrow}</span>
+      <span class="sent-ticker">$${ticker}</span>
+      <span class="sent-score">${score}</span>
+    </div>`;
+  };
+
+  el.innerHTML = `
+    <div class="sentiment-col sentiment-bull">
+      <div class="sentiment-col-label">📈 trending up</div>
+      ${bullish.map(([t, e]) => makeRow(t, e, 'up')).join('') || '<div class="sentiment-empty">—</div>'}
+    </div>
+    <div class="sentiment-col sentiment-bear">
+      <div class="sentiment-col-label">📉 trending down</div>
+      ${bearish.map(([t, e]) => makeRow(t, e, 'down')).join('') || '<div class="sentiment-empty">—</div>'}
+    </div>
+  `;
+
+  // Clicking a sentiment row filters posts just like a ticker pill
+  el.querySelectorAll('.sent-row').forEach(row =>
+    row.addEventListener('click', () => {
+      const ticker = row.dataset.ticker;
+      // Sync with pill selection
+      activeTicker = activeTicker === ticker ? null : ticker;
+      document.querySelectorAll('.ticker-pill').forEach(t => {
+        t.classList.toggle('selected', t.dataset.ticker === activeTicker);
+      });
+      el.querySelectorAll('.sent-row').forEach(r =>
+        r.classList.toggle('selected', r.dataset.ticker === activeTicker)
+      );
+      const clearBtn = document.getElementById('tickerClearBtn');
+      if (clearBtn) clearBtn.style.display = activeTicker ? 'inline-block' : 'none';
+      const listEl = document.getElementById('stocksPostsList');
+      if (stocksCache && listEl) renderStockPosts(listEl, stocksCache, activeTicker);
+    })
   );
 }
 

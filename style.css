@@ -666,6 +666,79 @@ html[data-theme="light"] .ticker-pill.selected { background: var(--green); color
   margin-left: 4px;
 }
 
+/* ── Sentiment signals section ────────────────────────────────────── */
+.stocks-sentiment-section {
+  flex-shrink: 0;
+  padding: 10px 18px 12px;
+  border-bottom: 1px solid var(--border);
+  background: var(--bg2);
+}
+
+.sentiment-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 10px;
+}
+
+.sentiment-col { display: flex; flex-direction: column; gap: 3px; }
+
+.sentiment-col-label {
+  font-size: .62rem;
+  font-weight: 600;
+  letter-spacing: .1em;
+  text-transform: uppercase;
+  margin-bottom: 5px;
+  color: var(--text3);
+}
+
+.sent-row {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  padding: 3px 7px;
+  border-radius: 4px;
+  cursor: pointer;
+  transition: background .12s;
+  border: 1px solid transparent;
+}
+.sent-row:hover   { background: var(--bg3); }
+.sent-row.selected { border-color: var(--border2); background: var(--bg3); }
+
+.sent-arrow {
+  font-size: .8rem;
+  flex-shrink: 0;
+  width: 12px;
+}
+.sent-ticker {
+  font-size: .78rem;
+  font-weight: 600;
+  flex: 1;
+  letter-spacing: .03em;
+}
+.sent-score {
+  font-size: .62rem;
+  color: var(--text3);
+  flex-shrink: 0;
+}
+
+/* Bullish (up) rows */
+.sent-up .sent-arrow  { color: var(--green); }
+.sent-up .sent-ticker { color: var(--green); }
+.sent-up:hover        { background: rgba(63,185,80,.07); }
+.sent-up.selected     { border-color: var(--green-dim); background: rgba(63,185,80,.1); }
+
+/* Bearish (down) rows */
+.sent-down .sent-arrow  { color: var(--red); }
+.sent-down .sent-ticker { color: var(--red); }
+.sent-down:hover        { background: rgba(248,81,73,.07); }
+.sent-down.selected     { border-color: var(--red); background: rgba(248,81,73,.1); }
+
+.sentiment-empty {
+  font-size: .72rem;
+  color: var(--text3);
+  padding: 2px 0;
+}
+
 /* Scrollable posts list */
 .stocks-posts {
   flex: 1;
