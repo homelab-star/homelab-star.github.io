@@ -76,6 +76,10 @@ const FALLBACK_FACTS = [
   'The average person walks about 100,000 miles in their lifetime.',
 ];
 
+/* ── All tab keys (used for prefetch + refresh) ───────────────────── */
+const ALL_NEWS_TABS   = ['world', 'tech', 'sports'];
+const ALL_REDDIT_SUBS = ['investing', 'stocks', 'realestate', 'options', 'wallstreetbets', 'selfhosted', 'homelab'];
+
 /* ── State ────────────────────────────────────────────────────────── */
 const cache = { news: {}, reddit: {} };
 let aiCache      = null;
@@ -94,25 +98,50 @@ document.addEventListener('DOMContentLoaded', () => {
   initTabs('.reddit-tabs', 'tab',  loadReddit, 'investing');
   startCountdown();
   setInterval(refreshAll, REFRESH_MS);
+  // Pre-warm every other tab in the background after visible content loads
+  setTimeout(prefetchAll, 1500);
 });
 
 function refreshAll() {
-  // Clear in-memory caches so next load fetches fresh data,
-  // but keep localStorage so the user never sees a blank while waiting.
+  // Keep localStorage intact so user never sees blank — just bust memory cache
   cache.news   = {};
   cache.reddit = {};
   aiCache      = null;
   activeTag    = null;
   loadFact();
 
+  // Active tabs: re-render from localStorage immediately, bg-fetch fresh data
   const nTab = document.querySelector('.news-tabs .tab.active');
   const rTab = document.querySelector('.reddit-tabs .tab.active');
-  // silent=true → fetch in background without replacing current content with spinner
-  if (nTab) loadNews(nTab.dataset.tab, true);
-  if (rTab) loadReddit(rTab.dataset.sub, true);
+  if (nTab) loadNews(nTab.dataset.tab);
+  if (rTab) loadReddit(rTab.dataset.sub);
   if (aiPanelOpen) loadAINews(true);
 
+  // Re-warm all other tabs in background
+  setTimeout(prefetchAll, 2000);
   countdown = REFRESH_MS / 1000;
+}
+
+/* ── Prefetch all tabs silently ───────────────────────────────────── */
+function prefetchAll() {
+  const activeNews   = document.querySelector('.news-tabs .tab.active')?.dataset.tab   || 'world';
+  const activeReddit = document.querySelector('.reddit-tabs .tab.active')?.dataset.sub || 'investing';
+
+  // News: from localStorage instantly; network only if no cache (staggered)
+  ALL_NEWS_TABS
+    .filter(t => t !== activeNews)
+    .forEach((tab, i) => setTimeout(() => loadNews(tab, true), i * 400));
+
+  // Reddit: same — localStorage first, network if missing (staggered after news)
+  ALL_REDDIT_SUBS
+    .filter(s => s !== activeReddit)
+    .forEach((sub, i) => setTimeout(() => loadReddit(sub, true), 1000 + i * 500));
+
+  // AI panel: warm from localStorage only (network fetch is heavy — waits for panel open)
+  if (!aiCache) {
+    const stored = lsGet('ai');
+    if (stored) aiCache = stored;
+  }
 }
 
 /* ── Countdown display ────────────────────────────────────────────── */
@@ -171,35 +200,39 @@ async function loadNews(tab, silent = false) {
   const el = document.getElementById('newsContent');
   if (!el) return;
 
-  // ① In-memory hit (same session, non-silent) → instant render
-  if (!silent && cache.news[tab]) { renderNews(el, cache.news[tab]); return; }
-
-  // ② localStorage hit → render immediately, then refresh silently in background
-  if (!silent) {
-    const stored = lsGet('news_' + tab);
-    if (stored) {
-      cache.news[tab] = stored;
-      renderNews(el, stored);
-      loadNews(tab, true);   // kick off silent background refresh
-      return;
-    }
-    el.innerHTML = '<div class="loading-msg">Loading…</div>';
-  }
-
-  // ③ Fetch fresh data
-  const items = await fetchRSSMany(FEEDS[tab] || [], 20);
-  if (!items.length) {
-    if (!silent) el.innerHTML = '<div class="loading-msg error">RSS feeds temporarily unavailable.</div>';
+  // ① Memory cache hit → render instantly (skip if silent)
+  if (cache.news[tab]) {
+    if (!silent) renderNews(el, cache.news[tab]);
     return;
   }
 
+  // ② localStorage hit → populate memory cache always; render + bg-refresh if !silent
+  const stored = lsGet('news_' + tab);
+  if (stored) {
+    cache.news[tab] = stored;
+    if (!silent) {
+      renderNews(el, stored);
+      bgFetchNews(tab);   // update in background without spinner
+    }
+    return;   // silent: memory now warm, no network needed
+  }
+
+  // ③ Nothing cached — fetch from network
+  if (!silent) el.innerHTML = '<div class="loading-msg">Loading…</div>';
+  const ok = await bgFetchNews(tab);
+  if (!ok && !silent) el.innerHTML = '<div class="loading-msg error">RSS feeds temporarily unavailable.</div>';
+}
+
+/** Fetch news, update cache + localStorage, re-render if tab is still active. */
+async function bgFetchNews(tab) {
+  const items = await fetchRSSMany(FEEDS[tab] || [], 20);
+  if (!items.length) return false;
   const fresh = items.slice(0, 18);
   cache.news[tab] = fresh;
   lsSet('news_' + tab, fresh);
-
-  // Only update DOM when this tab is still the active one
-  const activeTab = document.querySelector('.news-tabs .tab.active');
-  if (!silent || activeTab?.dataset.tab === tab) renderNews(el, fresh);
+  const active = document.querySelector('.news-tabs .tab.active');
+  if (active?.dataset.tab === tab) renderNews(document.getElementById('newsContent'), fresh);
+  return true;
 }
 
 const LIST_INITIAL = 6;
@@ -229,48 +262,51 @@ async function loadReddit(sub, silent = false) {
   const el = document.getElementById('redditContent');
   if (!el) return;
 
-  // ① In-memory hit
-  if (!silent && cache.reddit[sub]) { renderReddit(el, cache.reddit[sub]); return; }
-
-  // ② localStorage hit → render instantly, refresh silently
-  if (!silent) {
-    const stored = lsGet('reddit_' + sub);
-    if (stored) {
-      cache.reddit[sub] = stored;
-      renderReddit(el, stored);
-      loadReddit(sub, true);
-      return;
-    }
-    el.innerHTML = '<div class="loading-msg">Loading posts…</div>';
+  // ① Memory hit
+  if (cache.reddit[sub]) {
+    if (!silent) renderReddit(el, cache.reddit[sub]);
+    return;
   }
 
-  // ③ Fetch — GitHub Pages blocks direct Reddit CORS, proxy first
-  const redditUrl = `https://www.reddit.com/r/${sub}/hot.json?limit=25&raw_json=1`;
-  const attempts  = [
-    () => fetch(`${ALLORIGINS}${encodeURIComponent(redditUrl)}`).then(r => r.json()).then(w => JSON.parse(w.contents)),
-    () => fetch(`${CORSPROXY}${encodeURIComponent(redditUrl)}`).then(r => r.json()),
-    () => fetch(redditUrl).then(r => r.json()),
-  ];
+  // ② localStorage hit → populate memory; render + bg-refresh if !silent
+  const stored = lsGet('reddit_' + sub);
+  if (stored) {
+    cache.reddit[sub] = stored;
+    if (!silent) {
+      renderReddit(el, stored);
+      bgFetchReddit(sub);
+    }
+    return;   // silent: memory warm, done
+  }
 
+  // ③ Nothing cached — fetch from network
+  if (!silent) el.innerHTML = '<div class="loading-msg">Loading posts…</div>';
+  const ok = await bgFetchReddit(sub);
+  if (!ok && !silent) el.innerHTML = '<div class="loading-msg error">Could not reach Reddit.</div>';
+}
+
+/** Fetch Reddit sub, update cache + localStorage, re-render if sub is still active. */
+async function bgFetchReddit(sub) {
+  const url      = `https://www.reddit.com/r/${sub}/hot.json?limit=25&raw_json=1`;
+  const attempts = [
+    () => fetch(`${ALLORIGINS}${encodeURIComponent(url)}`).then(r => r.json()).then(w => JSON.parse(w.contents)),
+    () => fetch(`${CORSPROXY}${encodeURIComponent(url)}`).then(r => r.json()),
+    () => fetch(url).then(r => r.json()),
+  ];
   let posts = [];
-  for (const attempt of attempts) {
+  for (const fn of attempts) {
     try {
-      const data = await attempt();
+      const data = await fn();
       posts = data.data.children.map(c => c.data).filter(p => !p.stickied).slice(0, 22);
       if (posts.length) break;
     } catch { /* try next */ }
   }
-
-  if (!posts.length) {
-    if (!silent) el.innerHTML = '<div class="loading-msg error">Could not reach Reddit.</div>';
-    return;
-  }
-
+  if (!posts.length) return false;
   cache.reddit[sub] = posts;
   lsSet('reddit_' + sub, posts);
-
-  const activeTab = document.querySelector('.reddit-tabs .tab.active');
-  if (!silent || activeTab?.dataset.sub === sub) renderReddit(el, posts);
+  const active = document.querySelector('.reddit-tabs .tab.active');
+  if (active?.dataset.sub === sub) renderReddit(document.getElementById('redditContent'), posts);
+  return true;
 }
 
 function renderReddit(el, posts) {
