@@ -24,6 +24,35 @@
   --radius:      4px;
 }
 
+/* ── Light theme overrides ────────────────────────────────────────── */
+html[data-theme="light"] {
+  --bg:         #f6f8fa;
+  --bg2:        #ffffff;
+  --bg3:        #eaeef2;
+  --border:     #d0d7de;
+  --border2:    #afb8c1;
+  --text:       #1f2328;
+  --text2:      #57606a;
+  --text3:      #8c959f;
+  --accent:     #a86800;
+  --accent-dim: #7c4f00;
+  --accent-hi:  #c07800;
+  --link:       #a86800;
+  --link-hover: #7c4f00;
+  --red:        #cf222e;
+}
+
+/* Smooth transition when switching themes — only active for 350 ms */
+html.theme-switching *,
+html.theme-switching *::before,
+html.theme-switching *::after {
+  transition:
+    background-color .3s ease,
+    color            .3s ease,
+    border-color     .3s ease,
+    box-shadow       .3s ease !important;
+}
+
 /* ── Base ─────────────────────────────────────────────────────────── */
 html { scroll-behavior: smooth; }
 
@@ -107,6 +136,26 @@ button { font-family: var(--font); cursor: pointer; }
   color: var(--bg);
   border-color: var(--accent);
   font-weight: 600;
+}
+
+.theme-btn {
+  background: transparent;
+  border: 1px solid var(--border2);
+  color: var(--text2);
+  font-size: .95rem;
+  width: 30px;
+  height: 30px;
+  border-radius: var(--radius);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: color .2s, border-color .2s, background .2s;
+  line-height: 1;
+  padding: 0;
+}
+.theme-btn:hover {
+  color: var(--accent);
+  border-color: var(--accent);
 }
 
 /* ── Fact Bar ─────────────────────────────────────────────────────── */

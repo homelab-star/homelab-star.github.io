@@ -9,7 +9,25 @@
 const R2J         = 'https://api.rss2json.com/v1/api.json?rss_url=';
 const ALLORIGINS  = 'https://api.allorigins.win/get?url=';
 const CORSPROXY   = 'https://corsproxy.io/?';
-const REFRESH_MS  = 15 * 60 * 1000; // 15 min
+const REFRESH_MS  = 15 * 60 * 1000;       // 15 min between auto-refreshes
+const LS_PREFIX   = 'dash_';
+const CACHE_MAX_MS = 2 * 60 * 60 * 1000;  // 2 h — ignore older localStorage entries
+
+/* ── localStorage helpers ─────────────────────────────────────────── */
+function lsGet(key) {
+  try {
+    const raw = localStorage.getItem(LS_PREFIX + key);
+    if (!raw) return null;
+    const { ts, data } = JSON.parse(raw);
+    if (Date.now() - ts > CACHE_MAX_MS) { localStorage.removeItem(LS_PREFIX + key); return null; }
+    return data;
+  } catch { return null; }
+}
+
+function lsSet(key, data) {
+  try { localStorage.setItem(LS_PREFIX + key, JSON.stringify({ ts: Date.now(), data })); }
+  catch { /* storage full or unavailable — silent fail */ }
+}
 
 /* ── Feed definitions ─────────────────────────────────────────────── */
 const FEEDS = {
@@ -70,6 +88,7 @@ let countdown    = REFRESH_MS / 1000;
    INIT
 ════════════════════════════════════════════════════════════════════ */
 document.addEventListener('DOMContentLoaded', () => {
+  initTheme();
   loadFact();
   initTabs('.news-tabs',   'tab',  loadNews,   'world');
   initTabs('.reddit-tabs', 'tab',  loadReddit, 'investing');
@@ -78,6 +97,8 @@ document.addEventListener('DOMContentLoaded', () => {
 });
 
 function refreshAll() {
+  // Clear in-memory caches so next load fetches fresh data,
+  // but keep localStorage so the user never sees a blank while waiting.
   cache.news   = {};
   cache.reddit = {};
   aiCache      = null;
@@ -86,8 +107,9 @@ function refreshAll() {
 
   const nTab = document.querySelector('.news-tabs .tab.active');
   const rTab = document.querySelector('.reddit-tabs .tab.active');
-  if (nTab) loadNews(nTab.dataset.tab);
-  if (rTab) loadReddit(rTab.dataset.sub);
+  // silent=true → fetch in background without replacing current content with spinner
+  if (nTab) loadNews(nTab.dataset.tab, true);
+  if (rTab) loadReddit(rTab.dataset.sub, true);
   if (aiPanelOpen) loadAINews(true);
 
   countdown = REFRESH_MS / 1000;
@@ -145,18 +167,39 @@ function randomFallbackFact() {
 /* ════════════════════════════════════════════════════════════════════
    NEWS  (rss2json)
 ════════════════════════════════════════════════════════════════════ */
-async function loadNews(tab) {
+async function loadNews(tab, silent = false) {
   const el = document.getElementById('newsContent');
   if (!el) return;
 
-  if (cache.news[tab]) { renderNews(el, cache.news[tab]); return; }
-  el.innerHTML = '<div class="loading-msg">Loading…</div>';
+  // ① In-memory hit (same session, non-silent) → instant render
+  if (!silent && cache.news[tab]) { renderNews(el, cache.news[tab]); return; }
 
-  const urls  = FEEDS[tab] || [];
-  const items = await fetchRSSMany(urls, 20);
+  // ② localStorage hit → render immediately, then refresh silently in background
+  if (!silent) {
+    const stored = lsGet('news_' + tab);
+    if (stored) {
+      cache.news[tab] = stored;
+      renderNews(el, stored);
+      loadNews(tab, true);   // kick off silent background refresh
+      return;
+    }
+    el.innerHTML = '<div class="loading-msg">Loading…</div>';
+  }
 
-  cache.news[tab] = items.slice(0, 18);
-  renderNews(el, cache.news[tab]);
+  // ③ Fetch fresh data
+  const items = await fetchRSSMany(FEEDS[tab] || [], 20);
+  if (!items.length) {
+    if (!silent) el.innerHTML = '<div class="loading-msg error">RSS feeds temporarily unavailable.</div>';
+    return;
+  }
+
+  const fresh = items.slice(0, 18);
+  cache.news[tab] = fresh;
+  lsSet('news_' + tab, fresh);
+
+  // Only update DOM when this tab is still the active one
+  const activeTab = document.querySelector('.news-tabs .tab.active');
+  if (!silent || activeTab?.dataset.tab === tab) renderNews(el, fresh);
 }
 
 const LIST_INITIAL = 12;
@@ -182,26 +225,34 @@ function renderNews(el, items) {
 /* ════════════════════════════════════════════════════════════════════
    REDDIT
 ════════════════════════════════════════════════════════════════════ */
-async function loadReddit(sub) {
+async function loadReddit(sub, silent = false) {
   const el = document.getElementById('redditContent');
   if (!el) return;
 
-  if (cache.reddit[sub]) { renderReddit(el, cache.reddit[sub]); return; }
-  el.innerHTML = '<div class="loading-msg">Loading posts…</div>';
+  // ① In-memory hit
+  if (!silent && cache.reddit[sub]) { renderReddit(el, cache.reddit[sub]); return; }
 
+  // ② localStorage hit → render instantly, refresh silently
+  if (!silent) {
+    const stored = lsGet('reddit_' + sub);
+    if (stored) {
+      cache.reddit[sub] = stored;
+      renderReddit(el, stored);
+      loadReddit(sub, true);
+      return;
+    }
+    el.innerHTML = '<div class="loading-msg">Loading posts…</div>';
+  }
+
+  // ③ Fetch — GitHub Pages blocks direct Reddit CORS, proxy first
   const redditUrl = `https://www.reddit.com/r/${sub}/hot.json?limit=25&raw_json=1`;
-  let posts = [];
-
-  // GitHub Pages (HTTPS) blocks direct Reddit CORS — try proxy first, fall back to direct
-  const attempts = [
-    () => fetch(`${ALLORIGINS}${encodeURIComponent(redditUrl)}`)
-            .then(r => r.json())
-            .then(w => JSON.parse(w.contents)),
-    () => fetch(`${CORSPROXY}${encodeURIComponent(redditUrl)}`)
-            .then(r => r.json()),
-    () => fetch(redditUrl).then(r => r.json()),   // works on localhost
+  const attempts  = [
+    () => fetch(`${ALLORIGINS}${encodeURIComponent(redditUrl)}`).then(r => r.json()).then(w => JSON.parse(w.contents)),
+    () => fetch(`${CORSPROXY}${encodeURIComponent(redditUrl)}`).then(r => r.json()),
+    () => fetch(redditUrl).then(r => r.json()),
   ];
 
+  let posts = [];
   for (const attempt of attempts) {
     try {
       const data = await attempt();
@@ -211,12 +262,15 @@ async function loadReddit(sub) {
   }
 
   if (!posts.length) {
-    el.innerHTML = '<div class="loading-msg error">Could not reach Reddit.</div>';
+    if (!silent) el.innerHTML = '<div class="loading-msg error">Could not reach Reddit.</div>';
     return;
   }
 
   cache.reddit[sub] = posts;
-  renderReddit(el, posts);
+  lsSet('reddit_' + sub, posts);
+
+  const activeTab = document.querySelector('.reddit-tabs .tab.active');
+  if (!silent || activeTab?.dataset.sub === sub) renderReddit(el, posts);
 }
 
 function renderReddit(el, posts) {
@@ -279,16 +333,32 @@ async function loadAINews(force = false) {
   const listEl  = document.getElementById('aiNewsList');
   const cloudEl = document.getElementById('tagCloud');
   if (!listEl || !cloudEl) return;
+
+  // ① In-memory hit
   if (aiCache && !force) { renderAINews(listEl, aiCache); return; }
 
-  activeTag = null;
-  listEl.innerHTML  = '<div class="loading-msg">Fetching AI articles… (0 / ' + FEEDS.ai.length + ')</div>';
-  cloudEl.innerHTML = '';
+  // ② localStorage hit → show instantly, then refresh in background
+  if (!force) {
+    const stored = lsGet('ai');
+    if (stored) {
+      aiCache = stored;
+      renderAINews(listEl, aiCache);
+      renderTagCloud(cloudEl, aiCache);
+      loadAINews(true);   // silent background refresh
+      return;
+    }
+  }
 
-  // Fetch sequentially, update counter as each feed resolves
+  // ③ Fetch — only show progress spinner if nothing is currently displayed
+  if (!aiCache) {
+    activeTag = null;
+    listEl.innerHTML  = `<div class="loading-msg">Fetching AI articles… (0 / ${FEEDS.ai.length})</div>`;
+    cloudEl.innerHTML = '';
+  }
+
   const all = [];
   for (let i = 0; i < FEEDS.ai.length; i++) {
-    listEl.innerHTML = `<div class="loading-msg">Fetching AI articles… (${i + 1} / ${FEEDS.ai.length})</div>`;
+    if (!aiCache) listEl.innerHTML = `<div class="loading-msg">Fetching AI articles… (${i + 1} / ${FEEDS.ai.length})</div>`;
     const items = await fetchRSS(FEEDS.ai[i], 15);
     all.push(...items);
     if (i < FEEDS.ai.length - 1) await new Promise(r => setTimeout(r, 180));
@@ -308,6 +378,7 @@ async function loadAINews(force = false) {
     return true;
   });
   aiCache = items.slice(0, 50);
+  lsSet('ai', aiCache);
 
   renderAINews(listEl, aiCache);
   renderTagCloud(cloudEl, aiCache);
@@ -497,4 +568,30 @@ function esc(str) {
     .replace(/</g, '&lt;')
     .replace(/>/g, '&gt;')
     .replace(/"/g, '&quot;');
+}
+
+/* ════════════════════════════════════════════════════════════════════
+   THEME
+════════════════════════════════════════════════════════════════════ */
+function initTheme() {
+  const saved = localStorage.getItem('dash_theme') || 'dark';
+  applyTheme(saved, false);  // no transition on initial load
+}
+
+function toggleTheme() {
+  const current = document.documentElement.dataset.theme || 'dark';
+  applyTheme(current === 'dark' ? 'light' : 'dark', true);
+}
+
+function applyTheme(theme, animate = true) {
+  const html = document.documentElement;
+  if (animate) {
+    html.classList.add('theme-switching');
+    setTimeout(() => html.classList.remove('theme-switching'), 350);
+  }
+  html.dataset.theme = theme;
+  localStorage.setItem('dash_theme', theme);
+  const btn = document.getElementById('themeBtn');
+  if (btn) btn.title = theme === 'dark' ? 'Switch to light mode' : 'Switch to dark mode';
+  btn.textContent = theme === 'dark' ? '☀' : '☾';
 }
