@@ -384,15 +384,21 @@ async function loadAINews(force = false) {
   renderTagCloud(cloudEl, aiCache);
 }
 
-function renderAINews(el, items, filterWord) {
+function renderAINews(el, items, filterTag) {
   if (!items.length) {
     el.innerHTML = '<div class="loading-msg error">No AI articles found.</div>';
     return;
   }
+  // Resolve the regex pattern for the active tag (from taxonomy) or fall back to plain match
+  const entry     = filterTag ? AI_TAXONOMY.find(t => t.tag === filterTag) : null;
+  const filterPat = entry ? entry.pat : (filterTag ? new RegExp(filterTag.replace(/-/g, '.?'), 'i') : null);
+
+  // When a filter is active: show ALL items (expand list), just dim non-matches
   const rows = items.map((item, i) => {
-    const matches = !filterWord || item.title.toLowerCase().includes(filterWord);
+    const matches = !filterPat || filterPat.test(item.title);
+    const hidden  = !filterTag && i >= LIST_INITIAL ? ' list-hidden' : '';
     return `
-      <div class="ai-news-item${matches ? '' : ' dimmed'}${i >= LIST_INITIAL ? ' list-hidden' : ''}">
+      <div class="ai-news-item${matches ? '' : ' dimmed'}${hidden}">
         <span class="ai-num">${String(i + 1).padStart(2, '0')}</span>
         <div class="ai-body">
           <a class="news-title" href="${esc(item.link)}" target="_blank" rel="noreferrer">${esc(item.title)}</a>
@@ -401,52 +407,84 @@ function renderAINews(el, items, filterWord) {
       </div>
     `;
   }).join('');
-  const extra = items.length - LIST_INITIAL;
+  const extra = !filterTag && items.length > LIST_INITIAL ? items.length - LIST_INITIAL : 0;
   const btn   = extra > 0
     ? `<button class="show-more-btn" onclick="toggleListExpand(this)">SHOW MORE (${extra} more) ↓</button>`
     : '';
   el.innerHTML = rows + btn;
 }
 
-/* ── Tag Cloud ────────────────────────────────────────────────────── */
-const STOP = new Set([
-  'the','a','an','and','or','but','in','on','at','to','for','of','with','by',
-  'from','is','are','was','were','be','been','have','has','had','do','does',
-  'did','will','would','could','should','may','might','that','this','these',
-  'those','it','its','as','if','not','no','so','up','how','what','when',
-  'where','who','why','which','about','after','all','also','any','can',
-  'into','new','more','than','their','there','they','use','using','vs',
-  'over','just','your','our','we','you','i','my','his','her','he','she',
-  'us','said','says','top','first','now','get','got','make','made','take',
-  'one','two','three','four','five','six','seven','eight','nine','ten',
-  'here','out','back','been','were','had','has','have','will','can','could',
-]);
+/* ── Tag Cloud — curated taxonomy ────────────────────────────────── */
+// Each entry has a display tag and a regex to match against article titles.
+// Only entries that appear in ≥ MIN_TAG_COUNT articles are shown (max 25).
+const AI_TAXONOMY = [
+  // Labs / Companies
+  { tag: 'openai',       pat: /\bopenai\b/i },
+  { tag: 'anthropic',    pat: /\banthropic\b/i },
+  { tag: 'google',       pat: /\bgoogle\b/i },
+  { tag: 'meta',         pat: /\bmeta\b(?!\s*data)/i },
+  { tag: 'nvidia',       pat: /\bnvidia\b/i },
+  { tag: 'microsoft',    pat: /\bmicrosoft\b/i },
+  { tag: 'mistral',      pat: /\bmistral\b/i },
+  { tag: 'deepmind',     pat: /\bdeep.?mind\b/i },
+  { tag: 'apple',        pat: /\bapple\b/i },
+  { tag: 'xai',          pat: /\bx\.?ai\b/i },
+  { tag: 'cohere',       pat: /\bcohere\b/i },
+  { tag: 'huggingface',  pat: /\bhugging.?face\b/i },
+  { tag: 'perplexity',   pat: /\bperplexity\b/i },
+  // Models / Products
+  { tag: 'gpt',          pat: /\bgpt[-\s]?\d|\bgpt\b/i },
+  { tag: 'claude',       pat: /\bclaude\b/i },
+  { tag: 'gemini',       pat: /\bgemini\b/i },
+  { tag: 'llama',        pat: /\bllama\b/i },
+  { tag: 'grok',         pat: /\bgrok\b/i },
+  { tag: 'copilot',      pat: /\bcopilot\b/i },
+  { tag: 'deepseek',     pat: /\bdeepseek\b/i },
+  { tag: 'dall-e',       pat: /\bdall.?e\b/i },
+  { tag: 'sora',         pat: /\bsora\b/i },
+  // Concepts / Topics
+  { tag: 'agents',       pat: /\bagents?\b/i },
+  { tag: 'reasoning',    pat: /\breasoning\b/i },
+  { tag: 'multimodal',   pat: /\bmultimodal\b/i },
+  { tag: 'fine-tuning',  pat: /\bfine.?tun/i },
+  { tag: 'inference',    pat: /\binference\b/i },
+  { tag: 'rag',          pat: /\brag\b|\bretrieval.augmented/i },
+  { tag: 'open-source',  pat: /\bopen.?source\b/i },
+  { tag: 'robotics',     pat: /\brobotic|\bhumanoid\b/i },
+  { tag: 'chips',        pat: /\bchips?\b|\bsemiconductor|\bgpu\b|\btpu\b/i },
+  { tag: 'data-centers', pat: /\bdata.?center/i },
+  { tag: 'safety',       pat: /\bsafety\b|\balignment\b/i },
+  { tag: 'regulation',   pat: /\bregulat|\bpolicy\b/i },
+  { tag: 'benchmark',    pat: /\bbenchmark/i },
+  { tag: 'autonomous',   pat: /\bautonomous|\bself.driving\b/i },
+];
 
 function renderTagCloud(el, items) {
-  const freq = {};
-  items.forEach(({ title }) => {
-    title.toLowerCase()
-      .replace(/[^a-z0-9\s]/g, ' ')
-      .split(/\s+/)
-      .filter(w => w.length > 3 && !STOP.has(w))
-      .forEach(w => { freq[w] = (freq[w] || 0) + 1; });
-  });
+  if (!items.length) return;
 
-  const sorted = Object.entries(freq).sort((a, b) => b[1] - a[1]).slice(0, 50);
-  if (!sorted.length) return;
+  // Count how many articles each taxonomy term appears in
+  const MIN_TAG_COUNT = Math.max(1, Math.floor(items.length / 12));
+  const scored = AI_TAXONOMY
+    .map(entry => ({ ...entry, count: items.filter(({ title }) => entry.pat.test(title)).length }))
+    .filter(({ count }) => count >= MIN_TAG_COUNT)
+    .sort((a, b) => b.count - a.count)
+    .slice(0, 25);
 
-  const max = sorted[0][1];
-  const min = sorted[sorted.length - 1][1];
+  if (!scored.length) {
+    el.innerHTML = '<span style="color:var(--text3);font-size:.78rem">No trending topics in current articles</span>';
+    return;
+  }
+
+  const max   = scored[0].count;
+  const min   = scored[scored.length - 1].count;
   const range = max - min || 1;
 
-  el.innerHTML = sorted.map(([word, count]) => {
-    const size = (0.65 + ((count - min) / range) * 0.9).toFixed(2);
-    return `<span class="tag" data-word="${word}" style="font-size:${size}rem">${word}</span>`;
+  el.innerHTML = scored.map(({ tag, count }) => {
+    const size = (0.7 + ((count - min) / range) * 0.85).toFixed(2);
+    return `<span class="tag" data-word="${tag}" style="font-size:${size}rem" title="${count} article${count !== 1 ? 's' : ''}">${tag}</span>`;
   }).join('');
 
-  el.querySelectorAll('.tag').forEach(tag => {
-    tag.addEventListener('click', () => filterByTag(tag));
-  });
+  el.querySelectorAll('.tag').forEach(t => t.addEventListener('click', () => filterByTag(t)));
 }
 
 function filterByTag(tagEl) {
