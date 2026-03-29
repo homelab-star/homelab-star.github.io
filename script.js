@@ -137,35 +137,35 @@ function prefetchAll() {
   const activeNews   = document.querySelector('.news-tabs .tab.active')?.dataset.tab   || 'world';
   const activeReddit = document.querySelector('.reddit-tabs .tab.active')?.dataset.sub || 'investing';
 
-  // News: from localStorage instantly; network only if no cache (staggered)
+  // News: from localStorage instantly; network only if no cache (staggered lightly)
   ALL_NEWS_TABS
     .filter(t => t !== activeNews)
-    .forEach((tab, i) => setTimeout(() => loadNews(tab, true), i * 400));
+    .forEach((tab, i) => setTimeout(() => loadNews(tab, true), i * 200));
 
   // Reddit: same — localStorage first, network if missing (staggered after news)
   ALL_REDDIT_SUBS
     .filter(s => s !== activeReddit)
-    .forEach((sub, i) => setTimeout(() => loadReddit(sub, true), 1000 + i * 500));
+    .forEach((sub, i) => setTimeout(() => loadReddit(sub, true), 500 + i * 300));
 
-  // AI panel: localStorage hit → populate cache; else background fetch after reddit finishes
+  // AI panel: localStorage hit → populate cache; else background fetch after reddit
   if (!aiCache && !aiFetching) {
     const stored = lsGet('ai');
     if (stored) {
       aiCache = stored;
     } else {
-      // Start after all reddit prefetches finish (~1s + 7*500ms ≈ 5s)
-      setTimeout(() => { if (!aiCache && !aiFetching) loadAINews(false); }, 6000);
+      // Start after reddit prefetches finish (~0.5s + 6*300ms ≈ 2.3s)
+      setTimeout(() => { if (!aiCache && !aiFetching) loadAINews(false); }, 3500);
     }
   }
 
-  // Stocks panel: localStorage hit → populate cache; else background fetch after AI
+  // Stocks panel: localStorage hit → populate cache; else background fetch after AI starts
   if (!stocksCache && !stocksFetching) {
     const stored = lsGet('stocks');
     if (stored) {
       stocksCache = stored;
     } else {
-      // Start after AI panel fetch finishes (~6s + AI fetch ~3s ≈ 9s)
-      setTimeout(() => { if (!stocksCache && !stocksFetching) loadStocksPanel(false); }, 10000);
+      // Start after AI fetch completes (~3.5s + AI fetch ~1.5s ≈ 5s)
+      setTimeout(() => { if (!stocksCache && !stocksFetching) loadStocksPanel(false); }, 6000);
     }
   }
 }
@@ -315,15 +315,16 @@ async function loadReddit(sub, silent = false) {
 async function bgFetchReddit(sub) {
   const url      = `https://www.reddit.com/r/${sub}/hot.json?limit=25&raw_json=1`;
   const attempts = [
-    () => fetch(`${ALLORIGINS}${encodeURIComponent(url)}`).then(r => r.json()).then(w => JSON.parse(w.contents)),
-    () => fetch(`${CORSPROXY}${encodeURIComponent(url)}`).then(r => r.json()),
-    () => fetch(url).then(r => r.json()),
+    () => fetchWithTimeout(`${ALLORIGINS}${encodeURIComponent(url)}`).then(r => r.json()).then(w => JSON.parse(w.contents)),
+    () => fetchWithTimeout(`${CORSPROXY}${encodeURIComponent(url)}`).then(r => r.json()),
+    () => fetchWithTimeout(url).then(r => r.json()),
   ];
   let posts = [];
   for (const fn of attempts) {
     try {
       const data = await fn();
-      posts = data.data.children.map(c => c.data).filter(p => !p.stickied).slice(0, 22);
+      posts = data.data.children.map(c => c.data).filter(p => !p.stickied).slice(0, 22)
+              .map(p => trimPost(p, sub));
       if (posts.length) break;
     } catch { /* try next */ }
   }
@@ -444,7 +445,7 @@ async function loadAINews(force = false) {
         listEl.innerHTML = `<div class="loading-msg">Fetching AI articles… (${i + 1} / ${FEEDS.ai.length})</div>`;
       const items = await fetchRSS(FEEDS.ai[i], 15);
       all.push(...items);
-      if (i < FEEDS.ai.length - 1) await new Promise(r => setTimeout(r, 180));
+      if (i < FEEDS.ai.length - 1) await new Promise(r => setTimeout(r, 80));
     }
     // Filter to AI-relevant articles only
     const aiTerms = /\b(ai|llm|gpt|llama|gemini|claude|mistral|openai|anthropic|deepmind|chatgpt|copilot|artificial intelligence|machine learning|deep learning|neural|language model|transformer|inference|fine.?tun|rag|agentic|agent|diffusion|multimodal|foundation model|hugging.?face|nvidia|compute|chip|datacenter|robotics|autonomous)\b/i;
@@ -543,8 +544,16 @@ function renderTagCloud(el, items) {
   // Need ≥2 article mentions to surface a tag (avoids single-article noise)
   const MIN_COUNT = Math.max(2, Math.floor(items.length / 20));
 
+  // Single pass over articles: test each title against all taxonomy patterns at once
+  // (avoids 35 separate filter() calls = 35×N regex tests → N×35 but cache-friendly)
+  const counts = new Map(AI_TAXONOMY.map(e => [e.tag, 0]));
+  for (const { title } of items) {
+    for (const e of AI_TAXONOMY) {
+      if (e.pat.test(title)) counts.set(e.tag, counts.get(e.tag) + 1);
+    }
+  }
   const scored = AI_TAXONOMY
-    .map(entry => ({ ...entry, count: items.filter(({ title }) => entry.pat.test(title)).length }))
+    .map(entry => ({ ...entry, count: counts.get(entry.tag) }))
     .filter(({ count }) => count >= MIN_COUNT);
 
   // Sort: topics first (by count), then entities (by count)
@@ -678,7 +687,7 @@ function postSentimentScore(post) {
 function computeTickerSentiment(posts) {
   const map = new Map();
   posts.forEach(post => {
-    const tickers = extractTickers(post.title);
+    const tickers = post._tickers || extractTickers(post.title);
     if (!tickers.length) return;
     const score = postSentimentScore(post);
     tickers.forEach(t => {
@@ -709,13 +718,13 @@ function extractTickers(text) {
   return [...found.keys()];
 }
 
-/** Fetch one subreddit's hot posts via proxy chain */
+/** Fetch one subreddit's hot posts via proxy chain (timeout-guarded) */
 async function fetchSubredditRaw(sub) {
   const url      = `https://www.reddit.com/r/${sub}/hot.json?limit=50&raw_json=1`;
   const attempts = [
-    () => fetch(`${ALLORIGINS}${encodeURIComponent(url)}`).then(r => r.json()).then(w => JSON.parse(w.contents)),
-    () => fetch(`${CORSPROXY}${encodeURIComponent(url)}`).then(r => r.json()),
-    () => fetch(url).then(r => r.json()),
+    () => fetchWithTimeout(`${ALLORIGINS}${encodeURIComponent(url)}`).then(r => r.json()).then(w => JSON.parse(w.contents)),
+    () => fetchWithTimeout(`${CORSPROXY}${encodeURIComponent(url)}`).then(r => r.json()),
+    () => fetchWithTimeout(url).then(r => r.json()),
   ];
   for (const fn of attempts) {
     try {
@@ -724,7 +733,7 @@ async function fetchSubredditRaw(sub) {
         .map(c => c.data)
         .filter(p => !p.stickied)
         .slice(0, 50);
-      if (posts.length) return posts.map(p => ({ ...p, _sub: sub }));
+      if (posts.length) return posts.map(p => trimPost(p, sub));
     } catch { /* try next proxy */ }
   }
   return [];
@@ -782,12 +791,9 @@ async function loadStocksPanel(force = false) {
   }
 
   try {
-    const all = [];
-    for (const sub of STOCKS_SUBS) {
-      const posts = await fetchSubredditRaw(sub);
-      all.push(...posts);
-      await new Promise(r => setTimeout(r, 250));
-    }
+    // Fetch all subreddits in parallel — no need to wait sequentially
+    const results = await Promise.allSettled(STOCKS_SUBS.map(sub => fetchSubredditRaw(sub)));
+    const all = results.flatMap(r => r.status === 'fulfilled' ? r.value : []);
 
     if (all.length) {
       const seen = new Set();
@@ -814,18 +820,21 @@ async function loadStocksPanel(force = false) {
 
 /** Render tickers + sentiment + posts in one shot */
 function renderAllStocks(cloudEl, listEl, posts) {
-  renderStockTickers(cloudEl, posts);
-  renderSentiment(document.getElementById('stocksSentiment'), posts);
-  renderStockPosts(listEl, posts, activeTicker);
+  // Pre-compute tickers once per post so renderStockTickers and
+  // computeTickerSentiment don't duplicate the regex work
+  const annotated = posts.map(p => p._tickers ? p : { ...p, _tickers: extractTickers(p.title) });
+  renderStockTickers(cloudEl, annotated);
+  renderSentiment(document.getElementById('stocksSentiment'), annotated);
+  renderStockPosts(listEl, annotated, activeTicker);
 }
 
 function renderStockTickers(el, posts) {
   if (!posts.length) return;
 
-  // Count weighted ticker mentions across all post titles
+  // Count weighted ticker mentions (use pre-computed _tickers if available)
   const counts = new Map();
   posts.forEach(p => {
-    extractTickers(p.title).forEach(t => {
+    (p._tickers || extractTickers(p.title)).forEach(t => {
       counts.set(t, (counts.get(t) || 0) + 1);
     });
   });
@@ -980,6 +989,34 @@ function clearTickerFilter() {
 ════════════════════════════════════════════════════════════════════ */
 
 /**
+ * fetch() with an AbortController timeout. Prevents indefinite hangs on
+ * slow or unresponsive proxies.
+ */
+function fetchWithTimeout(url, ms = 8000) {
+  const ctrl = new AbortController();
+  const id   = setTimeout(() => ctrl.abort(), ms);
+  return fetch(url, { signal: ctrl.signal }).finally(() => clearTimeout(id));
+}
+
+/**
+ * Trim a raw Reddit post to only the fields we actually render/use.
+ * Reduces localStorage size and speeds up JSON parse/stringify.
+ */
+function trimPost(p, sub) {
+  return {
+    title:           p.title          || '',
+    permalink:       p.permalink      || '',
+    score:           p.score          || 0,
+    num_comments:    p.num_comments   || 0,
+    created_utc:     p.created_utc    || 0,
+    is_self:         p.is_self        || false,
+    domain:          p.domain         || '',
+    link_flair_text: p.link_flair_text || '',
+    _sub:            sub              || p.subreddit || '',
+  };
+}
+
+/**
  * Fetch one RSS feed with 3-tier fallback:
  *   1. rss2json.com  (returns clean JSON)
  *   2. allorigins.win (CORS proxy → raw XML)
@@ -989,14 +1026,14 @@ function clearTickerFilter() {
 async function fetchRSS(url, count = 20) {
   // ── Tier 1: rss2json ──────────────────────────────────────────────
   try {
-    const res  = await fetch(`${R2J}${encodeURIComponent(url)}&count=${count}`);
+    const res  = await fetchWithTimeout(`${R2J}${encodeURIComponent(url)}&count=${count}`);
     const data = await res.json();
     if (data.status === 'ok' && data.items?.length) return data.items;
   } catch { /* fall through */ }
 
   // ── Tier 2: allorigins ────────────────────────────────────────────
   try {
-    const res  = await fetch(`${ALLORIGINS}${encodeURIComponent(url)}`);
+    const res  = await fetchWithTimeout(`${ALLORIGINS}${encodeURIComponent(url)}`);
     const data = await res.json();
     const items = parseXML(data.contents || '');
     if (items.length) return items;
@@ -1004,7 +1041,7 @@ async function fetchRSS(url, count = 20) {
 
   // ── Tier 3: corsproxy.io ──────────────────────────────────────────
   try {
-    const res  = await fetch(`${CORSPROXY}${encodeURIComponent(url)}`);
+    const res  = await fetchWithTimeout(`${CORSPROXY}${encodeURIComponent(url)}`);
     const text = await res.text();
     const items = parseXML(text);
     if (items.length) return items;
@@ -1028,18 +1065,13 @@ function parseXML(xmlStr) {
 }
 
 /**
- * Fetch multiple feeds SEQUENTIALLY (avoids rss2json rate-limit),
- * merge, sort by date, dedupe by title.
+ * Fetch multiple feeds IN PARALLEL, merge, sort by date, dedupe by title.
+ * Parallel fetch is safe for small lists (2-3 feeds); any that fail are
+ * silently dropped via Promise.allSettled.
  */
 async function fetchRSSMany(urls, countPerFeed = 20) {
-  const all = [];
-  for (const url of urls) {
-    const items = await fetchRSS(url, countPerFeed);
-    all.push(...items);
-    // small pause between requests — keeps rss2json happy
-    await new Promise(r => setTimeout(r, 180));
-  }
-
+  const results = await Promise.allSettled(urls.map(url => fetchRSS(url, countPerFeed)));
+  const all = results.flatMap(r => r.status === 'fulfilled' ? r.value : []);
   all.sort((a, b) => new Date(b.pubDate) - new Date(a.pubDate));
   const seen = new Set();
   return all.filter(item => {
@@ -1061,10 +1093,14 @@ function timeAgo(dateVal) {
   return `${Math.floor(hrs / 24)}d`;
 }
 
-/** Extract readable hostname */
+/** Extract readable hostname (cached to avoid repeated URL parsing) */
+const _domainCache = new Map();
 function domain(url) {
-  try { return new URL(url).hostname.replace(/^www\./, ''); }
-  catch { return ''; }
+  if (_domainCache.has(url)) return _domainCache.get(url);
+  let d = '';
+  try { d = new URL(url).hostname.replace(/^www\./, ''); } catch { }
+  _domainCache.set(url, d);
+  return d;
 }
 
 /** Minimal HTML escaping */
