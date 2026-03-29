@@ -238,20 +238,24 @@ async function loadNews(tab, silent = false) {
     cache.news[tab] = stored;
     if (!silent) {
       renderNews(el, stored);
-      bgFetchNews(tab);   // update in background without spinner
+      bgFetchNews(tab, false);   // bg refresh — skip rss2json to avoid rate limits
     }
     return;   // silent: memory now warm, no network needed
   }
 
   // ③ Nothing cached — fetch from network
+  // Use rss2json only when user is actively waiting (!silent); skip it for background prefetch
   if (!silent) el.innerHTML = '<div class="loading-msg">Loading…</div>';
-  const ok = await bgFetchNews(tab);
+  const ok = await bgFetchNews(tab, !silent);
   if (!ok && !silent) el.innerHTML = '<div class="loading-msg error">RSS feeds temporarily unavailable.</div>';
 }
 
-/** Fetch news, update cache + localStorage, re-render if tab is still active. */
-async function bgFetchNews(tab) {
-  const items = await fetchRSSMany(FEEDS[tab] || [], 20);
+/** Fetch news, update cache + localStorage, re-render if tab is still active.
+ *  useR2J=true only when the user is actively waiting (avoids rss2json rate limits
+ *  for background prefetch calls which don't need a fast first try).
+ */
+async function bgFetchNews(tab, useR2J = true) {
+  const items = await fetchRSSMany(FEEDS[tab] || [], 20, useR2J);
   if (!items.length) return false;
   const fresh = items.slice(0, 18);
   cache.news[tab] = fresh;
@@ -313,11 +317,14 @@ async function loadReddit(sub, silent = false) {
 
 /** Fetch Reddit sub, update cache + localStorage, re-render if sub is still active. */
 async function bgFetchReddit(sub) {
-  const url      = `https://www.reddit.com/r/${sub}/hot.json?limit=25&raw_json=1`;
+  const url    = `https://www.reddit.com/r/${sub}/hot.json?limit=25&raw_json=1`;
+  const oldUrl = `https://old.reddit.com/r/${sub}/hot.json?limit=25&raw_json=1`;
   const attempts = [
-    () => fetchWithTimeout(`${ALLORIGINS}${encodeURIComponent(url)}`).then(r => r.json()).then(w => JSON.parse(w.contents)),
-    () => fetchWithTimeout(`${CORSPROXY}${encodeURIComponent(url)}`).then(r => r.json()),
-    () => fetchWithTimeout(url).then(r => r.json()),
+    () => fetchWithTimeout(`${ALLORIGINS}${encodeURIComponent(url)}`).then(r => { if (!r.ok) throw 0; return r.json(); }).then(w => JSON.parse(w.contents)),
+    () => fetchWithTimeout(`${CORSPROXY}${encodeURIComponent(url)}`).then(r => { if (!r.ok) throw 0; return r.json(); }),
+    () => fetchWithTimeout(`${ALLORIGINS}${encodeURIComponent(oldUrl)}`).then(r => { if (!r.ok) throw 0; return r.json(); }).then(w => JSON.parse(w.contents)),
+    () => fetchWithTimeout(`https://api.codetabs.com/v1/proxy?quest=${encodeURIComponent(url)}`).then(r => { if (!r.ok) throw 0; return r.json(); }),
+    () => fetchWithTimeout(url).then(r => { if (!r.ok) throw 0; return r.json(); }),
   ];
   let posts = [];
   for (const fn of attempts) {
@@ -720,11 +727,14 @@ function extractTickers(text) {
 
 /** Fetch one subreddit's hot posts via proxy chain (timeout-guarded) */
 async function fetchSubredditRaw(sub) {
-  const url      = `https://www.reddit.com/r/${sub}/hot.json?limit=50&raw_json=1`;
+  const url    = `https://www.reddit.com/r/${sub}/hot.json?limit=50&raw_json=1`;
+  const oldUrl = `https://old.reddit.com/r/${sub}/hot.json?limit=50&raw_json=1`;
   const attempts = [
-    () => fetchWithTimeout(`${ALLORIGINS}${encodeURIComponent(url)}`).then(r => r.json()).then(w => JSON.parse(w.contents)),
-    () => fetchWithTimeout(`${CORSPROXY}${encodeURIComponent(url)}`).then(r => r.json()),
-    () => fetchWithTimeout(url).then(r => r.json()),
+    () => fetchWithTimeout(`${ALLORIGINS}${encodeURIComponent(url)}`).then(r => { if (!r.ok) throw 0; return r.json(); }).then(w => JSON.parse(w.contents)),
+    () => fetchWithTimeout(`${CORSPROXY}${encodeURIComponent(url)}`).then(r => { if (!r.ok) throw 0; return r.json(); }),
+    () => fetchWithTimeout(`${ALLORIGINS}${encodeURIComponent(oldUrl)}`).then(r => { if (!r.ok) throw 0; return r.json(); }).then(w => JSON.parse(w.contents)),
+    () => fetchWithTimeout(`https://api.codetabs.com/v1/proxy?quest=${encodeURIComponent(url)}`).then(r => { if (!r.ok) throw 0; return r.json(); }),
+    () => fetchWithTimeout(url).then(r => { if (!r.ok) throw 0; return r.json(); }),
   ];
   for (const fn of attempts) {
     try {
@@ -1017,34 +1027,50 @@ function trimPost(p, sub) {
 }
 
 /**
- * Fetch one RSS feed with 3-tier fallback:
- *   1. rss2json.com  (returns clean JSON)
+ * Fetch one RSS feed with 4-tier fallback:
+ *   1. rss2json.com   (clean JSON — skipped for background prefetches to avoid rate limit)
  *   2. allorigins.win (CORS proxy → raw XML)
  *   3. corsproxy.io   (CORS proxy → raw XML)
- * Returns array of { title, link, pubDate } objects.
+ *   4. codetabs.com   (CORS proxy → raw content, last resort)
  */
-async function fetchRSS(url, count = 20) {
-  // ── Tier 1: rss2json ──────────────────────────────────────────────
-  try {
-    const res  = await fetchWithTimeout(`${R2J}${encodeURIComponent(url)}&count=${count}`);
-    const data = await res.json();
-    if (data.status === 'ok' && data.items?.length) return data.items;
-  } catch { /* fall through */ }
+async function fetchRSS(url, count = 20, useR2J = true) {
+  // ── Tier 1: rss2json (only for active/user-visible loads) ─────────
+  if (useR2J) {
+    try {
+      const res  = await fetchWithTimeout(`${R2J}${encodeURIComponent(url)}&count=${count}`);
+      const data = await res.json();
+      if (data.status === 'ok' && data.items?.length) return data.items;
+    } catch { /* fall through */ }
+  }
 
   // ── Tier 2: allorigins ────────────────────────────────────────────
   try {
     const res  = await fetchWithTimeout(`${ALLORIGINS}${encodeURIComponent(url)}`);
-    const data = await res.json();
-    const items = parseXML(data.contents || '');
-    if (items.length) return items;
+    if (res.ok) {
+      const data = await res.json();
+      const items = parseXML(data.contents || '');
+      if (items.length) return items;
+    }
   } catch { /* fall through */ }
 
   // ── Tier 3: corsproxy.io ──────────────────────────────────────────
   try {
     const res  = await fetchWithTimeout(`${CORSPROXY}${encodeURIComponent(url)}`);
-    const text = await res.text();
-    const items = parseXML(text);
-    if (items.length) return items;
+    if (res.ok) {
+      const text = await res.text();
+      const items = parseXML(text);
+      if (items.length) return items;
+    }
+  } catch { /* fall through */ }
+
+  // ── Tier 4: codetabs ─────────────────────────────────────────────
+  try {
+    const res  = await fetchWithTimeout(`https://api.codetabs.com/v1/proxy?quest=${encodeURIComponent(url)}`);
+    if (res.ok) {
+      const text = await res.text();
+      const items = parseXML(text);
+      if (items.length) return items;
+    }
   } catch { /* give up */ }
 
   return [];
@@ -1066,11 +1092,11 @@ function parseXML(xmlStr) {
 
 /**
  * Fetch multiple feeds IN PARALLEL, merge, sort by date, dedupe by title.
- * Parallel fetch is safe for small lists (2-3 feeds); any that fail are
- * silently dropped via Promise.allSettled.
+ * useR2J=false skips rss2json tier (used for background prefetch to avoid
+ * rate limits when the user isn't waiting on the result).
  */
-async function fetchRSSMany(urls, countPerFeed = 20) {
-  const results = await Promise.allSettled(urls.map(url => fetchRSS(url, countPerFeed)));
+async function fetchRSSMany(urls, countPerFeed = 20, useR2J = true) {
+  const results = await Promise.allSettled(urls.map(url => fetchRSS(url, countPerFeed, useR2J)));
   const all = results.flatMap(r => r.status === 'fulfilled' ? r.value : []);
   all.sort((a, b) => new Date(b.pubDate) - new Date(a.pubDate));
   const seen = new Set();
