@@ -110,6 +110,8 @@ let countdown      = REFRESH_MS / 1000;
 ════════════════════════════════════════════════════════════════════ */
 document.addEventListener('DOMContentLoaded', () => {
   initTheme();
+  initFontSize();
+  initSidebar();
   loadFact();
   initTabs('.news-tabs',   'tab',  loadNews,   'world');
   initTabs('.reddit-tabs', 'tab',  loadReddit, 'investing');
@@ -1330,4 +1332,55 @@ function applyTheme(theme, animate = true) {
   const btn = document.getElementById('themeBtn');
   if (btn) btn.title = theme === 'dark' ? 'Switch to light mode' : 'Switch to dark mode';
   btn.textContent = theme === 'dark' ? '☀' : '☾';
+}
+
+/* ════════════════════════════════════════════════════════════════════
+   FONT SIZE
+════════════════════════════════════════════════════════════════════ */
+const FONT_MIN = 11;
+const FONT_MAX = 18;
+const FONT_DEFAULT = 13.5;
+
+function initFontSize() {
+  const saved = parseFloat(localStorage.getItem('dash_fontSize'));
+  applyFontSize(isFinite(saved) ? saved : FONT_DEFAULT, false);
+}
+
+function changeFontSize(delta) {
+  const current = parseFloat(document.documentElement.style.fontSize) || FONT_DEFAULT;
+  applyFontSize(Math.min(FONT_MAX, Math.max(FONT_MIN, current + delta)));
+}
+
+function applyFontSize(size, save = true) {
+  document.documentElement.style.fontSize = size + 'px';
+  if (save) localStorage.setItem('dash_fontSize', size);
+}
+
+/* ════════════════════════════════════════════════════════════════════
+   SIDEBAR TOGGLE (mobile)
+════════════════════════════════════════════════════════════════════ */
+function toggleSidebar() {
+  const content = document.getElementById('sidebarContent');
+  const btn     = document.getElementById('sidebarToggle');
+  if (!content) return;
+  const collapsed = content.classList.toggle('collapsed');
+  if (btn) btn.classList.toggle('collapsed', collapsed);
+  // Persist state
+  localStorage.setItem('dash_sidebarCollapsed', collapsed ? '1' : '0');
+}
+
+function initSidebar() {
+  const content = document.getElementById('sidebarContent');
+  const btn     = document.getElementById('sidebarToggle');
+  if (!content) return;
+  // Set a concrete max-height so the CSS transition has a target
+  content.style.maxHeight = content.scrollHeight + 'px';
+  // On mobile, restore last collapsed state (default: open)
+  if (window.innerWidth <= 860) {
+    const wasCollapsed = localStorage.getItem('dash_sidebarCollapsed') === '1';
+    if (wasCollapsed) {
+      content.classList.add('collapsed');
+      if (btn) btn.classList.add('collapsed');
+    }
+  }
 }

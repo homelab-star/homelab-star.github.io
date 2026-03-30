@@ -144,6 +144,26 @@ button { font-family: var(--font); cursor: pointer; }
   font-weight: 600;
 }
 
+/* ── Font size control ────────────────────────────────────────────── */
+.font-ctrl { display: flex; align-items: center; gap: 3px; }
+.font-btn {
+  background: transparent;
+  border: 1px solid var(--border2);
+  color: var(--text2);
+  font-family: var(--font);
+  font-size: .72rem;
+  width: 26px;
+  height: 26px;
+  border-radius: var(--radius);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  line-height: 1;
+  padding: 0;
+  transition: color .15s, border-color .15s;
+}
+.font-btn:hover { color: var(--accent); border-color: var(--accent); }
+
 .theme-btn {
   background: transparent;
   border: 1px solid var(--border2);
@@ -215,7 +235,7 @@ button { font-family: var(--font); cursor: pointer; }
 
 /* ── Sidebar ──────────────────────────────────────────────────────── */
 .sidebar {
-  padding: 16px 14px;
+  padding: 14px 14px 16px;
   border-right: 1px solid var(--border);
   position: sticky;
   top: calc(var(--header-h) + 49px);
@@ -224,12 +244,47 @@ button { font-family: var(--font); cursor: pointer; }
   align-self: start;
 }
 
+/* Header row: "BOOKMARKS" label + mobile toggle button */
+.sidebar-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 10px;
+}
+.sidebar-header .section-label { margin-bottom: 0; }
+
+/* Collapse toggle — hidden on desktop, shown on mobile */
+.sidebar-toggle {
+  display: none;
+  background: transparent;
+  border: 1px solid var(--border2);
+  color: var(--text3);
+  font-size: .88rem;
+  width: 24px;
+  height: 24px;
+  border-radius: var(--radius);
+  line-height: 1;
+  padding: 0;
+  transition: color .15s, transform .2s;
+}
+.sidebar-toggle:hover { color: var(--accent); border-color: var(--accent); }
+.sidebar-toggle.collapsed { transform: rotate(-90deg); }
+
+/* Content wrapper — animated collapse on mobile */
+.sidebar-content {
+  overflow: hidden;
+  transition: max-height .3s ease;
+}
+.sidebar-content.collapsed { max-height: 0 !important; }
+
+.bookmark-group { margin-bottom: 4px; }
+
 .bookmark-group-title {
   font-size: .78rem;
   font-weight: 600;
   color: var(--group-color, var(--accent));
-  margin: 16px 0 6px;
-  padding-top: 14px;
+  margin: 14px 0 6px;
+  padding-top: 12px;
   border-top: 1px solid var(--border);
   letter-spacing: .04em;
 }
@@ -817,17 +872,69 @@ html[data-theme="light"] .ticker-pill.selected { background: var(--green); color
 
 /* ── Responsive tweaks ────────────────────────────────────────────── */
 @media (max-width: 860px) {
+  :root { --panel-w: 92%; }
+
   .main-layout { grid-template-columns: 1fr; }
+
+  /* Sidebar becomes a horizontal header bar on mobile */
   .sidebar {
     position: static;
     max-height: none;
     border-right: none;
     border-bottom: 1px solid var(--border);
-    display: flex;
-    flex-wrap: wrap;
-    gap: 0 24px;
+    padding: 10px 14px 12px;
   }
-  :root { --panel-w: 92%; }
+
+  /* Show the collapse toggle on mobile */
+  .sidebar-toggle { display: flex; align-items: center; justify-content: center; }
+
+  /* Collapsed: zero-height with smooth animation */
+  .sidebar-content {
+    max-height: 400px; /* tall enough to fit all links when open */
+  }
+  .sidebar-content.collapsed { max-height: 0 !important; }
+
+  /* Bookmark links render as horizontal pills */
+  .bookmark-list {
+    flex-direction: row;
+    flex-wrap: wrap;
+    gap: 6px 10px;
+  }
+
+  .bookmark-list a {
+    display: inline-flex;
+    align-items: center;
+    padding: 3px 10px;
+    border: 1px solid var(--border2);
+    border-radius: 20px;
+    font-size: .78rem;
+    white-space: nowrap;
+    background: var(--bg3);
+    transition: color .15s, border-color .15s, background .15s;
+  }
+  .bookmark-list a:hover {
+    border-color: var(--accent);
+    color: var(--accent);
+    background: var(--bg2);
+  }
+
+  /* Group titles stay readable */
+  .bookmark-group-title {
+    margin: 10px 0 4px;
+    padding-top: 8px;
+  }
+}
+
+@media (max-width: 600px) {
+  .tabs { gap: 0; }
+  .tab { padding: 7px 8px; font-size: .65rem; }
+
+  /* Hide the refresh timer text on very small screens */
+  .refresh-indicator { display: none; }
+
+  /* Tighter header */
+  .header { padding: 0 10px; }
+  .header-right { gap: 7px; }
 }
 
 @media (max-width: 600px) {

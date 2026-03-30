@@ -21,6 +21,10 @@
     </div>
     <div class="header-right">
       <span class="refresh-indicator" id="refreshTimer" title="Next auto-refresh"></span>
+      <div class="font-ctrl" title="Font size">
+        <button class="font-btn" onclick="changeFontSize(-1)" title="Decrease font size">A−</button>
+        <button class="font-btn" onclick="changeFontSize(1)"  title="Increase font size">A+</button>
+      </div>
       <button class="theme-btn" id="themeBtn" onclick="toggleTheme()" title="Switch to light mode">☀</button>
       <button class="stocks-toggle-btn" id="stocksToggleBtn" onclick="toggleStocksPanel()">
         ▲ Stocks
@@ -43,30 +47,41 @@
 
     <!-- Left Sidebar: Bookmarks -->
     <aside class="sidebar">
-      <div class="section-label">BOOKMARKS</div>
+      <div class="sidebar-header">
+        <span class="section-label">BOOKMARKS</span>
+        <button class="sidebar-toggle" id="sidebarToggle" onclick="toggleSidebar()" title="Toggle bookmarks">▾</button>
+      </div>
 
-      <ul class="bookmark-list">
-        <li><a href="https://finviz.com/" target="_blank" rel="noreferrer">Finviz <span class="ext">↗</span></a></li>
-        <li><a href="https://finance.yahoo.com/chart/NFLX" target="_blank" rel="noreferrer">Yahoo Chart <span class="ext">↗</span></a></li>
-        <li><a href="https://mail.google.com/mail/u/0/" target="_blank" rel="noreferrer">Gmail <span class="ext">↗</span></a></li>
-        <li><a href="https://www.redfin.com/" target="_blank" rel="noreferrer">Redfin <span class="ext">↗</span></a></li>
-        <li><a href="https://slickdeals.net/forums/forumdisplay.php?f=9" target="_blank" rel="noreferrer">Slickdeals <span class="ext">↗</span></a></li>
-      </ul>
+      <div class="sidebar-content" id="sidebarContent">
+        <div class="bookmark-group">
+          <ul class="bookmark-list">
+            <li><a href="https://finviz.com/" target="_blank" rel="noreferrer">Finviz <span class="ext">↗</span></a></li>
+            <li><a href="https://finance.yahoo.com/chart/NFLX" target="_blank" rel="noreferrer">Yahoo Chart <span class="ext">↗</span></a></li>
+            <li><a href="https://mail.google.com/mail/u/0/" target="_blank" rel="noreferrer">Gmail <span class="ext">↗</span></a></li>
+            <li><a href="https://www.redfin.com/" target="_blank" rel="noreferrer">Redfin <span class="ext">↗</span></a></li>
+            <li><a href="https://slickdeals.net/forums/forumdisplay.php?f=9" target="_blank" rel="noreferrer">Slickdeals <span class="ext">↗</span></a></li>
+          </ul>
+        </div>
 
-      <div class="bookmark-group-title" style="--group-color: hsl(10,70%,60%)">News</div>
-      <ul class="bookmark-list">
-        <li><a href="https://www.greatandhra.com/" target="_blank" rel="noreferrer">Greatandhra <span class="ext">↗</span></a></li>
-        <li><a href="https://www.gulte.com/" target="_blank" rel="noreferrer">Gulte <span class="ext">↗</span></a></li>
-        <li><a href="https://www.cnn.com/" target="_blank" rel="noreferrer">CNN <span class="ext">↗</span></a></li>
-        <li><a href="https://www.yahoo.com/" target="_blank" rel="noreferrer">Yahoo <span class="ext">↗</span></a></li>
-      </ul>
+        <div class="bookmark-group">
+          <div class="bookmark-group-title" style="--group-color: hsl(10,70%,60%)">News</div>
+          <ul class="bookmark-list">
+            <li><a href="https://www.greatandhra.com/" target="_blank" rel="noreferrer">Greatandhra <span class="ext">↗</span></a></li>
+            <li><a href="https://www.gulte.com/" target="_blank" rel="noreferrer">Gulte <span class="ext">↗</span></a></li>
+            <li><a href="https://www.cnn.com/" target="_blank" rel="noreferrer">CNN <span class="ext">↗</span></a></li>
+            <li><a href="https://www.yahoo.com/" target="_blank" rel="noreferrer">Yahoo <span class="ext">↗</span></a></li>
+          </ul>
+        </div>
 
-      <div class="bookmark-group-title" style="--group-color: hsl(200,50%,60%)">Sports</div>
-      <ul class="bookmark-list">
-        <li><a href="https://www.reddit.com/" target="_blank" rel="noreferrer">Reddit <span class="ext">↗</span></a></li>
-        <li><a href="https://www.espncricinfo.com/" target="_blank" rel="noreferrer">Cricinfo <span class="ext">↗</span></a></li>
-        <li><a href="https://www.espn.com/" target="_blank" rel="noreferrer">ESPN <span class="ext">↗</span></a></li>
-      </ul>
+        <div class="bookmark-group">
+          <div class="bookmark-group-title" style="--group-color: hsl(200,50%,60%)">Sports</div>
+          <ul class="bookmark-list">
+            <li><a href="https://www.reddit.com/" target="_blank" rel="noreferrer">Reddit <span class="ext">↗</span></a></li>
+            <li><a href="https://www.espncricinfo.com/" target="_blank" rel="noreferrer">Cricinfo <span class="ext">↗</span></a></li>
+            <li><a href="https://www.espn.com/" target="_blank" rel="noreferrer">ESPN <span class="ext">↗</span></a></li>
+          </ul>
+        </div>
+      </div>
     </aside>
 
     <!-- Center Panel -->
