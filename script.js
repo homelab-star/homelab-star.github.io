@@ -81,16 +81,27 @@ const FALLBACK_FACTS = [
 const ALL_NEWS_TABS   = ['world', 'tech', 'sports'];
 const ALL_REDDIT_SUBS = ['investing', 'stocks', 'realestate', 'options', 'wallstreetbets', 'selfhosted', 'homelab'];
 
+/* ── X.com / Nitter config ────────────────────────────────────────── */
+// Nitter is an open-source Twitter frontend that exposes RSS search feeds.
+// Instances come and go — the Worker tries each in order, silent fail.
+const NITTER_INSTANCES = [
+  'nitter.poast.org',
+  'nitter.privacydev.net',
+  'nitter.catsarch.com',
+];
+const NITTER_AI_QUERY = encodeURIComponent('(AI OR LLM OR openai OR anthropic OR gemini OR claude) -RT');
+
 /* ── State ────────────────────────────────────────────────────────── */
 const cache = { news: {}, reddit: {} };
 let aiCache        = null;
 let aiPanelOpen    = false;
 let activeTag      = null;
-let aiSourceFilter = '';          // domain string, e.g. 'techcrunch.com'
+let aiSourceFilter = '';          // domain string e.g. 'techcrunch.com' or 'x.com'
 let stocksCache    = null;
+let stocksXCache   = [];          // StockTwits trending symbols [{symbol, count, title}]
 let stocksPanelOpen = false;
 let activeTicker   = null;
-let stocksSourceFilter = '';      // subreddit string, e.g. 'wallstreetbets'
+let stocksSourceFilter = '';      // subreddit string e.g. 'wallstreetbets' or 'x.com'
 let refreshTimer   = null;
 let countdown      = REFRESH_MS / 1000;
 
@@ -403,6 +414,41 @@ function toggleListExpand(btn) {
 /* ════════════════════════════════════════════════════════════════════
    AI SLIDE PANEL
 ════════════════════════════════════════════════════════════════════ */
+/* ── X.com helpers ────────────────────────────────────────────────── */
+
+/** Fetch AI-relevant tweets from X.com via Nitter RSS (tries each instance). */
+async function fetchNitterAI() {
+  for (const host of NITTER_INSTANCES) {
+    try {
+      const url   = `https://${host}/search/rss?q=${NITTER_AI_QUERY}&f=tweets`;
+      const items = await fetchRSS(url, 30, false); // skip rss2json — Nitter is raw XML
+      if (items.length) {
+        // Tag each item so we can filter/display as "x.com" source
+        return items.map(i => ({ ...i, _source: 'x.com' }));
+      }
+    } catch { /* try next instance */ }
+  }
+  return [];
+}
+
+/**
+ * Fetch trending symbols from StockTwits public API.
+ * Returns [{symbol, count, title}] sorted by watchlist_count.
+ */
+async function fetchStockTwitsTrending() {
+  try {
+    const url = 'https://api.stocktwits.com/api/2/trending/symbols.json';
+    const res = await fetchWithTimeout(`${MYPROXY}${encodeURIComponent(url)}`);
+    if (!res.ok) throw new Error();
+    const data = await res.json();
+    return (data.symbols || []).slice(0, 30).map(s => ({
+      symbol: s.symbol,
+      title:  s.title  || s.symbol,
+      count:  s.watchlist_count || 1,
+    }));
+  } catch { return []; }
+}
+
 function toggleAIPanel() {
   if (stocksPanelOpen) _closeStocks();   // close sibling panel first
   aiPanelOpen = !aiPanelOpen;
@@ -458,6 +504,7 @@ async function loadAINews(force = false) {
 
   try {
     const all = [];
+    // Fetch RSS feeds sequentially (rss2json rate-limit friendly)
     for (let i = 0; i < FEEDS.ai.length; i++) {
       if (!aiCache && aiPanelOpen)
         listEl.innerHTML = `<div class="loading-msg">Fetching AI articles… (${i + 1} / ${FEEDS.ai.length})</div>`;
@@ -465,6 +512,10 @@ async function loadAINews(force = false) {
       all.push(...items);
       if (i < FEEDS.ai.length - 1) await new Promise(r => setTimeout(r, 80));
     }
+    // Fetch X.com / Nitter in parallel with the last RSS feed (silent fail)
+    const xItems = await fetchNitterAI();
+    all.push(...xItems);
+
     // Filter to AI-relevant articles only
     const aiTerms = /\b(ai|llm|gpt|llama|gemini|claude|mistral|openai|anthropic|deepmind|chatgpt|copilot|artificial intelligence|machine learning|deep learning|neural|language model|transformer|inference|fine.?tun|rag|agentic|agent|diffusion|multimodal|foundation model|hugging.?face|nvidia|compute|chip|datacenter|robotics|autonomous)\b/i;
     const aiFiltered = all.filter(item => aiTerms.test(item.title));
@@ -476,7 +527,7 @@ async function loadAINews(force = false) {
       seen.add(item.title);
       return true;
     });
-    aiCache = deduped.slice(0, 50);
+    aiCache = deduped.slice(0, 60); // 60 to accommodate X.com additions
     lsSet('ai', aiCache);
   } finally {
     aiFetching = false;
@@ -495,9 +546,14 @@ function renderAINews(el, items, filterTag) {
     return;
   }
 
-  // Apply source filter first (dropdown selection)
+  // Apply source filter (dropdown) — 'x.com' matches _source tag; others match domain
   const visibleItems = aiSourceFilter
-    ? items.filter(item => domain(item.link) === aiSourceFilter || domain(item.link).endsWith('.' + aiSourceFilter))
+    ? aiSourceFilter === 'x.com'
+      ? items.filter(item => item._source === 'x.com')
+      : items.filter(item => {
+          const d = domain(item.link);
+          return d === aiSourceFilter || d.endsWith('.' + aiSourceFilter);
+        })
     : items;
 
   if (!visibleItems.length) {
@@ -521,7 +577,7 @@ function renderAINews(el, items, filterTag) {
         <span class="ai-num">${String(i + 1).padStart(2, '0')}</span>
         <div class="ai-body">
           <a class="news-title" href="${esc(item.link)}" target="_blank" rel="noreferrer">${esc(item.title)}</a>
-          <div class="news-meta">${timeAgo(item.pubDate)} · ${domain(item.link)}</div>
+          <div class="news-meta">${timeAgo(item.pubDate)} · ${item._source || domain(item.link)}</div>
         </div>
       </div>
     `;
@@ -542,9 +598,13 @@ function filterAIBySource(src) {
   const cloudEl = document.getElementById('tagCloud');
   if (!aiCache || !listEl) return;
   // Recompute tag cloud with source-filtered articles
-  const filtered = src
-    ? aiCache.filter(item => domain(item.link) === src || domain(item.link).endsWith('.' + src))
-    : aiCache;
+  const filtered = !src ? aiCache
+    : src === 'x.com'
+      ? aiCache.filter(item => item._source === 'x.com')
+      : aiCache.filter(item => {
+          const d = domain(item.link);
+          return d === src || d.endsWith('.' + src);
+        });
   if (cloudEl) renderTagCloud(cloudEl, filtered);
   renderAINews(listEl, aiCache, activeTag);
 }
@@ -820,7 +880,8 @@ async function loadStocksPanel(force = false) {
   if (!force) {
     const stored = lsGet('stocks');
     if (stored) {
-      stocksCache = stored;
+      stocksCache  = stored;
+      stocksXCache = lsGet('stocks_x') || [];
       renderAllStocks(cloudEl, listEl, stocksCache);
       loadStocksPanel(true);   // silent background refresh
       return;
@@ -840,9 +901,15 @@ async function loadStocksPanel(force = false) {
   }
 
   try {
-    // Fetch all subreddits in parallel — no need to wait sequentially
-    const results = await Promise.allSettled(STOCKS_SUBS.map(sub => fetchSubredditRaw(sub)));
-    const all = results.flatMap(r => r.status === 'fulfilled' ? r.value : []);
+    // Fetch Reddit subs + StockTwits trending in parallel
+    const [redditResults, xResult] = await Promise.allSettled([
+      Promise.allSettled(STOCKS_SUBS.map(sub => fetchSubredditRaw(sub))),
+      fetchStockTwitsTrending(),
+    ]);
+    const all = (redditResults.status === 'fulfilled' ? redditResults.value : [])
+      .flatMap(r => r.status === 'fulfilled' ? r.value : []);
+    stocksXCache = xResult.status === 'fulfilled' ? xResult.value : [];
+    lsSet('stocks_x', stocksXCache);
 
     if (all.length) {
       const seen = new Set();
@@ -869,6 +936,15 @@ async function loadStocksPanel(force = false) {
 
 /** Render tickers + sentiment + posts in one shot */
 function renderAllStocks(cloudEl, listEl, posts) {
+  if (stocksSourceFilter === 'x.com') {
+    // X.com mode: show only StockTwits tickers, hide sentiment + posts
+    renderStockTickersX(cloudEl, stocksXCache);
+    const sentEl = document.getElementById('stocksSentiment');
+    if (sentEl) sentEl.innerHTML = '';
+    listEl.innerHTML = '<div class="loading-msg">X.com / StockTwits shows trending tickers only.<br>Select a subreddit for post details.</div>';
+    return;
+  }
+
   // Apply subreddit source filter (dropdown) before computing anything
   const filtered = stocksSourceFilter
     ? posts.filter(p => (p._sub || p.subreddit) === stocksSourceFilter)
@@ -877,7 +953,7 @@ function renderAllStocks(cloudEl, listEl, posts) {
   // Pre-compute tickers once per post so renderStockTickers and
   // computeTickerSentiment don't duplicate the regex work
   const annotated = filtered.map(p => p._tickers ? p : { ...p, _tickers: extractTickers(p.title) });
-  renderStockTickers(cloudEl, annotated);
+  renderStockTickers(cloudEl, annotated, stocksSourceFilter ? [] : stocksXCache);
   renderSentiment(document.getElementById('stocksSentiment'), annotated);
   renderStockPosts(listEl, annotated, activeTicker);
 }
@@ -894,10 +970,10 @@ function filterStocksBySource(src) {
   if (cloudEl && listEl) renderAllStocks(cloudEl, listEl, stocksCache);
 }
 
-function renderStockTickers(el, posts) {
-  if (!posts.length) return;
+function renderStockTickers(el, posts, xSymbols = []) {
+  if (!posts.length && !xSymbols.length) return;
 
-  // Count weighted ticker mentions (use pre-computed _tickers if available)
+  // Count weighted ticker mentions from Reddit posts
   const counts = new Map();
   posts.forEach(p => {
     (p._tickers || extractTickers(p.title)).forEach(t => {
@@ -911,16 +987,42 @@ function renderStockTickers(el, posts) {
     .sort((a, b) => b[1] - a[1])
     .slice(0, 35);
 
-  if (!sorted.length) {
+  // Reddit ticker pills
+  const redditHtml = sorted.map(([ticker, count]) =>
+    `<span class="ticker-pill" data-ticker="${ticker}"
+      title="${count} Reddit mention${count !== 1 ? 's' : ''}">$${ticker}<span class="ticker-count">${count}</span></span>`
+  ).join('');
+
+  // X.com / StockTwits ticker pills (separate style + separator)
+  const xHtml = xSymbols.length
+    ? `<span class="tag-separator" title="X.com / StockTwits trending">· · ·</span>` +
+      xSymbols.slice(0, 20).map(s =>
+        `<span class="ticker-pill ticker-pill-x" data-ticker="${s.symbol}"
+          title="${s.title} — trending on X.com / StockTwits">$${s.symbol}<span class="ticker-count">𝕏</span></span>`
+      ).join('')
+    : '';
+
+  if (!redditHtml && !xHtml) {
     el.innerHTML = '<span style="color:var(--text3);font-size:.78rem">No trending tickers detected</span>';
     return;
   }
 
-  el.innerHTML = sorted.map(([ticker, count]) =>
-    `<span class="ticker-pill" data-ticker="${ticker}"
-      title="${count} mention${count !== 1 ? 's' : ''}">$${ticker}<span class="ticker-count">${count}</span></span>`
-  ).join('');
+  el.innerHTML = redditHtml + xHtml;
+  el.querySelectorAll('.ticker-pill').forEach(t =>
+    t.addEventListener('click', () => filterByTicker(t))
+  );
+}
 
+/** Render ONLY StockTwits tickers (used when source filter = x.com) */
+function renderStockTickersX(el, xSymbols) {
+  if (!xSymbols.length) {
+    el.innerHTML = '<span style="color:var(--text3);font-size:.78rem">No X.com trending data</span>';
+    return;
+  }
+  el.innerHTML = xSymbols.slice(0, 30).map(s =>
+    `<span class="ticker-pill ticker-pill-x" data-ticker="${s.symbol}"
+      title="${s.title} — trending on X.com / StockTwits">$${s.symbol}<span class="ticker-count">𝕏</span></span>`
+  ).join('');
   el.querySelectorAll('.ticker-pill').forEach(t =>
     t.addEventListener('click', () => filterByTicker(t))
   );

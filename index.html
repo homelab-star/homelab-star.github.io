@@ -112,6 +112,7 @@
       <div class="ai-panel-header-actions">
         <select class="source-dropdown" id="aiSourceDropdown" onchange="filterAIBySource(this.value)" title="Filter by source">
           <option value="">All sources</option>
+          <option value="x.com">𝕏 X.com / Twitter</option>
           <option value="news.ycombinator.com">Hacker News</option>
           <option value="techcrunch.com">TechCrunch</option>
           <option value="theverge.com">The Verge</option>
@@ -143,8 +144,9 @@
     <div class="stocks-panel-header">
       <span class="section-label">TRENDING STOCKS</span>
       <div class="stocks-panel-header-actions">
-        <select class="source-dropdown" id="stocksSourceDropdown" onchange="filterStocksBySource(this.value)" title="Filter by subreddit">
-          <option value="">All subreddits</option>
+        <select class="source-dropdown" id="stocksSourceDropdown" onchange="filterStocksBySource(this.value)" title="Filter by source">
+          <option value="">All sources</option>
+          <option value="x.com">𝕏 X.com / StockTwits</option>
           <option value="stocks">r/stocks</option>
           <option value="wallstreetbets">r/wallstreetbets</option>
           <option value="options">r/options</option>

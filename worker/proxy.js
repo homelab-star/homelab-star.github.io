@@ -37,6 +37,12 @@ const ALLOWED_HOSTS = [
   // Reddit (JSON API)
   'www.reddit.com',
   'old.reddit.com',
+  // X.com via Nitter (open-source Twitter frontend with RSS)
+  'nitter.poast.org',
+  'nitter.privacydev.net',
+  'nitter.catsarch.com',
+  // StockTwits public API
+  'api.stocktwits.com',
   // Random facts API
   'uselessfacts.jsph.pl',
 ];

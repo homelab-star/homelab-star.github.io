@@ -677,6 +677,14 @@ html[data-theme="light"] .ticker-pill         { color: var(--green-dim); border-
 html[data-theme="light"] .ticker-pill:hover   { background: var(--green-dim); color: #fff; }
 html[data-theme="light"] .ticker-pill.selected { background: var(--green); color: #fff; border-color: var(--green); }
 
+/* X.com / StockTwits tickers — distinct colour (sky blue) */
+.ticker-pill-x {
+  border-color: #1d9bf0;
+  color: #1d9bf0;
+}
+.ticker-pill-x:hover  { background: #1d9bf0; color: #fff; border-color: #1d9bf0; }
+.ticker-pill-x.selected { background: #1d9bf0; color: #fff; border-color: #1d9bf0; }
+
 /* Mention badge inside pill */
 .ticker-count {
   font-size: .6rem;
