@@ -110,6 +110,15 @@
     <div class="ai-panel-header">
       <span class="section-label">TOP AI NEWS</span>
       <div class="ai-panel-header-actions">
+        <select class="source-dropdown" id="aiSourceDropdown" onchange="filterAIBySource(this.value)" title="Filter by source">
+          <option value="">All sources</option>
+          <option value="news.ycombinator.com">Hacker News</option>
+          <option value="techcrunch.com">TechCrunch</option>
+          <option value="theverge.com">The Verge</option>
+          <option value="venturebeat.com">VentureBeat</option>
+          <option value="huggingface.co">HuggingFace</option>
+          <option value="arstechnica.com">Ars Technica</option>
+        </select>
         <button class="icon-btn" onclick="loadAINews(true)" title="Refresh">↺</button>
         <button class="icon-btn close-btn" onclick="toggleAIPanel()">✕</button>
       </div>
@@ -134,6 +143,17 @@
     <div class="stocks-panel-header">
       <span class="section-label">TRENDING STOCKS</span>
       <div class="stocks-panel-header-actions">
+        <select class="source-dropdown" id="stocksSourceDropdown" onchange="filterStocksBySource(this.value)" title="Filter by subreddit">
+          <option value="">All subreddits</option>
+          <option value="stocks">r/stocks</option>
+          <option value="wallstreetbets">r/wallstreetbets</option>
+          <option value="options">r/options</option>
+          <option value="coveredcalls">r/coveredcalls</option>
+          <option value="daytrading">r/daytrading</option>
+          <option value="stockstobuytoday">r/stockstobuytoday</option>
+          <option value="valueinvesting">r/valueinvesting</option>
+          <option value="dividends">r/dividends</option>
+        </select>
         <button class="icon-btn" onclick="loadStocksPanel(true)" title="Refresh">↺</button>
         <button class="icon-btn close-btn" onclick="toggleStocksPanel()">✕</button>
       </div>

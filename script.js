@@ -6,6 +6,7 @@
    - 15-minute auto-refresh
 ═══════════════════════════════════════════════════════════════════ */
 
+const MYPROXY     = 'https://proxy.emmzy.com/?url=';          // own CF Worker — primary
 const R2J         = 'https://api.rss2json.com/v1/api.json?rss_url=';
 const ALLORIGINS  = 'https://api.allorigins.win/get?url=';
 const CORSPROXY   = 'https://corsproxy.io/?';
@@ -85,9 +86,11 @@ const cache = { news: {}, reddit: {} };
 let aiCache        = null;
 let aiPanelOpen    = false;
 let activeTag      = null;
+let aiSourceFilter = '';          // domain string, e.g. 'techcrunch.com'
 let stocksCache    = null;
 let stocksPanelOpen = false;
 let activeTicker   = null;
+let stocksSourceFilter = '';      // subreddit string, e.g. 'wallstreetbets'
 let refreshTimer   = null;
 let countdown      = REFRESH_MS / 1000;
 
@@ -113,6 +116,12 @@ function refreshAll() {
   stocksCache  = null;
   activeTag    = null;
   activeTicker = null;
+  aiSourceFilter     = '';
+  stocksSourceFilter = '';
+  const aiDd = document.getElementById('aiSourceDropdown');
+  const stDd = document.getElementById('stocksSourceDropdown');
+  if (aiDd) aiDd.value = '';
+  if (stDd) stDd.value = '';
   loadFact();
 
   // Active tabs: re-render from localStorage immediately, bg-fetch fresh data
@@ -320,6 +329,7 @@ async function bgFetchReddit(sub) {
   const url    = `https://www.reddit.com/r/${sub}/hot.json?limit=25&raw_json=1`;
   const oldUrl = `https://old.reddit.com/r/${sub}/hot.json?limit=25&raw_json=1`;
   const attempts = [
+    () => fetchWithTimeout(`${MYPROXY}${encodeURIComponent(url)}`).then(r => { if (!r.ok) throw 0; return r.json(); }),
     () => fetchWithTimeout(`${ALLORIGINS}${encodeURIComponent(url)}`).then(r => { if (!r.ok) throw 0; return r.json(); }).then(w => JSON.parse(w.contents)),
     () => fetchWithTimeout(`${CORSPROXY}${encodeURIComponent(url)}`).then(r => { if (!r.ok) throw 0; return r.json(); }),
     () => fetchWithTimeout(`${ALLORIGINS}${encodeURIComponent(oldUrl)}`).then(r => { if (!r.ok) throw 0; return r.json(); }).then(w => JSON.parse(w.contents)),
@@ -483,17 +493,28 @@ function renderAINews(el, items, filterTag) {
     el.innerHTML = '<div class="loading-msg error">No AI articles found.</div>';
     return;
   }
-  // Resolve the regex pattern for the active tag (from taxonomy) or fall back to plain match
+
+  // Apply source filter first (dropdown selection)
+  const visibleItems = aiSourceFilter
+    ? items.filter(item => domain(item.link) === aiSourceFilter || domain(item.link).endsWith('.' + aiSourceFilter))
+    : items;
+
+  if (!visibleItems.length) {
+    el.innerHTML = '<div class="loading-msg">No articles from this source.</div>';
+    return;
+  }
+
+  // Resolve tag filter pattern
   const entry     = filterTag ? AI_TAXONOMY.find(t => t.tag === filterTag) : null;
   const filterPat = entry ? entry.pat : (filterTag ? new RegExp(filterTag.replace(/-/g, '.?'), 'i') : null);
 
-  // Filter active → hide non-matches; no filter → hide after LIST_INITIAL
-  const rows = items.map((item, i) => {
+  // Build rows — tag filter hides non-matches; no filter → show first LIST_INITIAL then collapse
+  const rows = visibleItems.map((item, i) => {
     const matches = !filterPat || filterPat.test(item.title);
     const isExtra = !filterPat && i >= LIST_INITIAL;
     const hidden  = filterPat
-      ? (matches ? '' : ' list-hidden')   // filtered: hide non-matches
-      : (isExtra  ? ' list-hidden' : ''); // unfiltered: hide after 6
+      ? (matches ? '' : ' list-hidden')
+      : (isExtra  ? ' list-hidden' : '');
     return `
       <div class="ai-news-item${hidden}"${isExtra ? ' data-extra="true"' : ''}>
         <span class="ai-num">${String(i + 1).padStart(2, '0')}</span>
@@ -504,11 +525,27 @@ function renderAINews(el, items, filterTag) {
       </div>
     `;
   }).join('');
-  const extra = !filterTag && items.length > LIST_INITIAL ? items.length - LIST_INITIAL : 0;
+
+  // Show more/less button — visible when no tag filter and there are extra items
+  const extra = !filterTag && visibleItems.length > LIST_INITIAL ? visibleItems.length - LIST_INITIAL : 0;
   const btn   = extra > 0
     ? `<button class="show-more-btn" onclick="toggleListExpand(this)">SHOW MORE (${extra} more) ↓</button>`
     : '';
   el.innerHTML = rows + btn;
+}
+
+/** Filter AI articles by source (dropdown) */
+function filterAIBySource(src) {
+  aiSourceFilter = src;
+  const listEl  = document.getElementById('aiNewsList');
+  const cloudEl = document.getElementById('tagCloud');
+  if (!aiCache || !listEl) return;
+  // Recompute tag cloud with source-filtered articles
+  const filtered = src
+    ? aiCache.filter(item => domain(item.link) === src || domain(item.link).endsWith('.' + src))
+    : aiCache;
+  if (cloudEl) renderTagCloud(cloudEl, filtered);
+  renderAINews(listEl, aiCache, activeTag);
 }
 
 /* ── Tag Cloud — landscape-first taxonomy ────────────────────────── */
@@ -633,7 +670,7 @@ function clearTagFilter() {
    STOCKS SLIDE PANEL
 ════════════════════════════════════════════════════════════════════ */
 
-const STOCKS_SUBS    = ['stocks', 'wallstreetbets', 'coveredcalls', 'options', 'stockstobuytoday', 'valueinvesting', 'dividends'];
+const STOCKS_SUBS    = ['stocks', 'wallstreetbets', 'options', 'coveredcalls', 'daytrading', 'stockstobuytoday', 'valueinvesting', 'dividends'];
 const STOCKS_INITIAL = 8;
 
 // Common non-ticker uppercase words to ignore
@@ -730,6 +767,7 @@ async function fetchSubredditRaw(sub) {
   const url    = `https://www.reddit.com/r/${sub}/hot.json?limit=50&raw_json=1`;
   const oldUrl = `https://old.reddit.com/r/${sub}/hot.json?limit=50&raw_json=1`;
   const attempts = [
+    () => fetchWithTimeout(`${MYPROXY}${encodeURIComponent(url)}`).then(r => { if (!r.ok) throw 0; return r.json(); }),
     () => fetchWithTimeout(`${ALLORIGINS}${encodeURIComponent(url)}`).then(r => { if (!r.ok) throw 0; return r.json(); }).then(w => JSON.parse(w.contents)),
     () => fetchWithTimeout(`${CORSPROXY}${encodeURIComponent(url)}`).then(r => { if (!r.ok) throw 0; return r.json(); }),
     () => fetchWithTimeout(`${ALLORIGINS}${encodeURIComponent(oldUrl)}`).then(r => { if (!r.ok) throw 0; return r.json(); }).then(w => JSON.parse(w.contents)),
@@ -830,12 +868,29 @@ async function loadStocksPanel(force = false) {
 
 /** Render tickers + sentiment + posts in one shot */
 function renderAllStocks(cloudEl, listEl, posts) {
+  // Apply subreddit source filter (dropdown) before computing anything
+  const filtered = stocksSourceFilter
+    ? posts.filter(p => (p._sub || p.subreddit) === stocksSourceFilter)
+    : posts;
+
   // Pre-compute tickers once per post so renderStockTickers and
   // computeTickerSentiment don't duplicate the regex work
-  const annotated = posts.map(p => p._tickers ? p : { ...p, _tickers: extractTickers(p.title) });
+  const annotated = filtered.map(p => p._tickers ? p : { ...p, _tickers: extractTickers(p.title) });
   renderStockTickers(cloudEl, annotated);
   renderSentiment(document.getElementById('stocksSentiment'), annotated);
   renderStockPosts(listEl, annotated, activeTicker);
+}
+
+/** Filter stocks panel by subreddit source (dropdown) */
+function filterStocksBySource(src) {
+  stocksSourceFilter = src;
+  activeTicker = null; // reset ticker filter when source changes
+  const clearBtn = document.getElementById('tickerClearBtn');
+  if (clearBtn) clearBtn.style.display = 'none';
+  if (!stocksCache) return;
+  const cloudEl = document.getElementById('tickerCloud');
+  const listEl  = document.getElementById('stocksPostsList');
+  if (cloudEl && listEl) renderAllStocks(cloudEl, listEl, stocksCache);
 }
 
 function renderStockTickers(el, posts) {
@@ -1034,6 +1089,16 @@ function trimPost(p, sub) {
  *   4. codetabs.com   (CORS proxy → raw content, last resort)
  */
 async function fetchRSS(url, count = 20, useR2J = true) {
+  // ── Tier 0: own Cloudflare Worker (primary — reliable, edge-cached) ─
+  try {
+    const res  = await fetchWithTimeout(`${MYPROXY}${encodeURIComponent(url)}`);
+    if (res.ok) {
+      const text = await res.text();
+      const items = parseXML(text);
+      if (items.length) return items;
+    }
+  } catch { /* fall through */ }
+
   // ── Tier 1: rss2json (only for active/user-visible loads) ─────────
   if (useR2J) {
     try {
