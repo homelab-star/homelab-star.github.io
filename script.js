@@ -274,7 +274,8 @@ async function bgFetchNews(tab, useR2J = true) {
   return true;
 }
 
-const LIST_INITIAL = 6;
+const LIST_INITIAL    = 6;   // news tabs + reddit tabs
+const SIDEBAR_INITIAL = 12;  // AI panel + Stocks panel
 
 function renderNews(el, items) {
   if (!items.length) {
@@ -508,10 +509,10 @@ function renderAINews(el, items, filterTag) {
   const entry     = filterTag ? AI_TAXONOMY.find(t => t.tag === filterTag) : null;
   const filterPat = entry ? entry.pat : (filterTag ? new RegExp(filterTag.replace(/-/g, '.?'), 'i') : null);
 
-  // Build rows — tag filter hides non-matches; no filter → show first LIST_INITIAL then collapse
+  // Build rows — tag filter hides non-matches; no filter → show first SIDEBAR_INITIAL then collapse
   const rows = visibleItems.map((item, i) => {
     const matches = !filterPat || filterPat.test(item.title);
-    const isExtra = !filterPat && i >= LIST_INITIAL;
+    const isExtra = !filterPat && i >= SIDEBAR_INITIAL;
     const hidden  = filterPat
       ? (matches ? '' : ' list-hidden')
       : (isExtra  ? ' list-hidden' : '');
@@ -527,7 +528,7 @@ function renderAINews(el, items, filterTag) {
   }).join('');
 
   // Show more/less button — visible when no tag filter and there are extra items
-  const extra = !filterTag && visibleItems.length > LIST_INITIAL ? visibleItems.length - LIST_INITIAL : 0;
+  const extra = !filterTag && visibleItems.length > SIDEBAR_INITIAL ? visibleItems.length - SIDEBAR_INITIAL : 0;
   const btn   = extra > 0
     ? `<button class="show-more-btn" onclick="toggleListExpand(this)">SHOW MORE (${extra} more) ↓</button>`
     : '';
@@ -671,7 +672,7 @@ function clearTagFilter() {
 ════════════════════════════════════════════════════════════════════ */
 
 const STOCKS_SUBS    = ['stocks', 'wallstreetbets', 'options', 'coveredcalls', 'daytrading', 'stockstobuytoday', 'valueinvesting', 'dividends'];
-const STOCKS_INITIAL = 8;
+const STOCKS_INITIAL = SIDEBAR_INITIAL;
 
 // Common non-ticker uppercase words to ignore
 const TICKER_BLOCKLIST = new Set([
