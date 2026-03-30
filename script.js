@@ -507,10 +507,11 @@ async function loadAINews(force = false) {
   try {
     const all = [];
     // Fetch RSS feeds sequentially (rss2json rate-limit friendly)
+    // Fetch 25 per feed so we have a bigger pool to rank from
     for (let i = 0; i < FEEDS.ai.length; i++) {
       if (!aiCache && aiPanelOpen)
         listEl.innerHTML = `<div class="loading-msg">Fetching AI articles… (${i + 1} / ${FEEDS.ai.length})</div>`;
-      const items = await fetchRSS(FEEDS.ai[i], 15);
+      const items = await fetchRSS(FEEDS.ai[i], 25);
       all.push(...items);
       if (i < FEEDS.ai.length - 1) await new Promise(r => setTimeout(r, 80));
     }
@@ -521,15 +522,34 @@ async function loadAINews(force = false) {
     // Filter to AI-relevant articles only
     const aiTerms = /\b(ai|llm|gpt|llama|gemini|claude|mistral|openai|anthropic|deepmind|chatgpt|copilot|artificial intelligence|machine learning|deep learning|neural|language model|transformer|inference|fine.?tun|rag|agentic|agent|diffusion|multimodal|foundation model|hugging.?face|nvidia|compute|chip|datacenter|robotics|autonomous)\b/i;
     const aiFiltered = all.filter(item => aiTerms.test(item.title));
-    const merged = aiFiltered.length >= 15 ? aiFiltered : all;
-    merged.sort((a, b) => new Date(b.pubDate) - new Date(a.pubDate));
+    const pool = aiFiltered.length >= 15 ? aiFiltered : all;
+
+    // Deduplicate first, then rank by popularity score
     const seen = new Set();
-    const deduped = merged.filter(item => {
+    const deduped = pool.filter(item => {
       if (!item.title || seen.has(item.title)) return false;
       seen.add(item.title);
       return true;
     });
-    aiCache = deduped.slice(0, 60); // 60 to accommodate X.com additions
+
+    // Score each item: keyword density × source authority × recency decay
+    // Recency: exp(-ageHours / 36) — full weight within ~6 h, half weight at ~25 h
+    const now = Date.now();
+    const aiKeyPat = /\b(ai|llm|gpt|llama|gemini|claude|mistral|openai|anthropic|deepmind|chatgpt|copilot|artificial intelligence|machine learning|deep learning|neural|language model|transformer|inference|fine.?tun|rag|agentic|agent|diffusion|multimodal|foundation model|hugging.?face|nvidia|compute|chip|datacenter|robotics|autonomous)\b/ig;
+    const aiSources = new Set(['huggingface.co', 'news.ycombinator.com', 'venturebeat.com']);
+    deduped.forEach(item => {
+      const text     = item.title + ' ' + (item.description || '');
+      const hits     = Math.min(8, (text.match(aiKeyPat) || []).length);
+      const ageH     = (now - new Date(item.pubDate).getTime()) / 3_600_000;
+      const recency  = Math.exp(-Math.max(0, ageH) / 36);
+      const srcBoost = aiSources.has(item._source || domain(item.link)) ? 1.4 : 1;
+      item._pop = (hits + 1) * recency * srcBoost;
+    });
+
+    // Sort: highest popularity score first
+    deduped.sort((a, b) => b._pop - a._pop);
+
+    aiCache = deduped.slice(0, 120);
     lsSet('ai', aiCache);
   } finally {
     aiFetching = false;
@@ -919,7 +939,8 @@ async function loadStocksPanel(force = false) {
         if (seen.has(p.title)) return false;
         seen.add(p.title);
         return true;
-      }).sort((a, b) => b.score - a.score);
+      }).sort((a, b) => b.score - a.score)  // highest Reddit upvotes first
+        .slice(0, 120);                       // top 120 across all subs
       stocksCache = deduped;
       lsSet('stocks', deduped);
     }
