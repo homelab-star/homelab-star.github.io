@@ -87,9 +87,16 @@ export default {
       upstream = await fetch(targetUrl.toString(), {
         signal: ctrl.signal,
         headers: {
-          'User-Agent':      'Mozilla/5.0 (compatible; EmmzyDashboard/1.0; +https://hello.emmzy.com)',
-          'Accept':          'application/rss+xml, application/xml, application/json, text/xml, */*',
+          // Mimic a real browser to bypass bot-detection on news sites
+          'User-Agent':      'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36',
+          'Accept':          'text/html,application/xhtml+xml,application/xml;q=0.9,application/json,*/*;q=0.8',
           'Accept-Language': 'en-US,en;q=0.9',
+          'Accept-Encoding': 'gzip, deflate, br',
+          'Cache-Control':   'no-cache',
+          'Pragma':          'no-cache',
+          'Sec-Fetch-Dest':  'document',
+          'Sec-Fetch-Mode':  'navigate',
+          'Sec-Fetch-Site':  'none',
         },
         cf: { cacheTtl: CACHE_TTL, cacheEverything: true },
       });
@@ -99,7 +106,7 @@ export default {
       clearTimeout(timer);
     }
 
-    if (!upstream.ok) return reply(`Upstream ${upstream.status}`, 502, request);
+    if (!upstream.ok) return reply(`Upstream ${upstream.status}`, upstream.status === 403 || upstream.status === 401 ? 403 : 502, request);
 
     const body        = await upstream.arrayBuffer();
     const contentType = upstream.headers.get('content-type') || 'text/plain; charset=utf-8';
