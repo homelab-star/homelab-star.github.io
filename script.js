@@ -150,6 +150,61 @@ function refreshAll() {
   countdown = REFRESH_MS / 1000;
 }
 
+/* ── Clear all data cache + force full background refresh ─────────── */
+function clearCache() {
+  // Wipe every dash_ data key; preserve user settings (theme, fontSize, sidebarCollapsed)
+  const KEEP = new Set(['dash_theme', 'dash_fontSize', 'dash_sidebarCollapsed']);
+  Object.keys(localStorage)
+    .filter(k => k.startsWith(LS_PREFIX) && !KEEP.has(k))
+    .forEach(k => localStorage.removeItem(k));
+
+  // Reset all in-memory caches and UI state
+  cache.news   = {};
+  cache.reddit = {};
+  aiCache        = null;
+  stocksCache    = null;
+  stocksXCache   = [];
+  aiFetching     = false;
+  stocksFetching = false;
+  activeTag      = null;
+  activeTicker   = null;
+  aiSourceFilter     = '';
+  stocksSourceFilter = '';
+  const aiDd = document.getElementById('aiSourceDropdown');
+  const stDd = document.getElementById('stocksSourceDropdown');
+  if (aiDd) aiDd.value = '';
+  if (stDd) stDd.value = '';
+
+  // Re-render active visible tabs immediately (will show loading state + fetch)
+  const nTab = document.querySelector('.news-tabs .tab.active');
+  const rTab = document.querySelector('.reddit-tabs .tab.active');
+  if (nTab) loadNews(nTab.dataset.tab);
+  if (rTab) loadReddit(rTab.dataset.sub);
+  if (aiPanelOpen)     loadAINews(true);
+  if (stocksPanelOpen) loadStocksPanel(true);
+
+  // Background-refresh every other tab/panel staggered
+  ALL_NEWS_TABS
+    .filter(t => t !== nTab?.dataset.tab)
+    .forEach((tab, i) => setTimeout(() => loadNews(tab, true), 300 + i * 200));
+  ALL_REDDIT_SUBS
+    .filter(s => s !== rTab?.dataset.sub)
+    .forEach((sub, i) => setTimeout(() => loadReddit(sub, true), 900 + i * 300));
+  setTimeout(() => { if (!aiCache     && !aiFetching)     loadAINews(false);     }, 3800);
+  setTimeout(() => { if (!stocksCache && !stocksFetching) loadStocksPanel(false); }, 6500);
+
+  // Button feedback: flash "✓ Cleared"
+  const btn = document.getElementById('clearCacheBtn');
+  if (btn) {
+    const orig = btn.textContent;
+    btn.textContent = '✓';
+    btn.classList.add('cleared');
+    setTimeout(() => { btn.textContent = orig; btn.classList.remove('cleared'); }, 1800);
+  }
+
+  countdown = REFRESH_MS / 1000;
+}
+
 /* ── Prefetch all tabs silently ───────────────────────────────────── */
 // Flags to prevent duplicate concurrent fetches for the heavy panels
 let aiFetching     = false;

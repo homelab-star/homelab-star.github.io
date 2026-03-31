@@ -164,6 +164,30 @@ button { font-family: var(--font); cursor: pointer; }
 }
 .font-btn:hover { color: var(--accent); border-color: var(--accent); }
 
+/* ── Clear cache button ───────────────────────────────────────────── */
+.clear-cache-btn {
+  background: transparent;
+  border: 1px solid var(--border2);
+  color: var(--text3);
+  font-family: var(--font);
+  font-size: .9rem;
+  width: 28px;
+  height: 28px;
+  border-radius: var(--radius);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  line-height: 1;
+  padding: 0;
+  transition: color .15s, border-color .15s, background .15s;
+}
+.clear-cache-btn:hover { color: var(--red); border-color: var(--red); }
+.clear-cache-btn.cleared {
+  color: var(--green);
+  border-color: var(--green);
+  font-size: .78rem;
+}
+
 .theme-btn {
   background: transparent;
   border: 1px solid var(--border2);
