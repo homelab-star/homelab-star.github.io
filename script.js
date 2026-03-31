@@ -1025,26 +1025,36 @@ async function loadStocksPanel(force = false) {
 
 /** Render tickers + sentiment + posts in one shot */
 function renderAllStocks(cloudEl, listEl, posts) {
+  const upEl   = document.getElementById('stocksSentimentUp');
+  const downEl = document.getElementById('stocksSentimentDown');
+
   if (stocksSourceFilter === 'x.com') {
-    // X.com mode: show only StockTwits tickers, hide sentiment + posts
     renderStockTickersX(cloudEl, stocksXCache);
-    const sentEl = document.getElementById('stocksSentiment');
-    if (sentEl) sentEl.innerHTML = '';
+    if (upEl)   upEl.innerHTML   = '';
+    if (downEl) downEl.innerHTML = '';
     listEl.innerHTML = '<div class="loading-msg">X.com / StockTwits shows trending tickers only.<br>Select a subreddit for post details.</div>';
     return;
   }
 
-  // Apply subreddit source filter (dropdown) before computing anything
   const filtered = stocksSourceFilter
     ? posts.filter(p => (p._sub || p.subreddit) === stocksSourceFilter)
     : posts;
 
-  // Pre-compute tickers once per post so renderStockTickers and
-  // computeTickerSentiment don't duplicate the regex work
   const annotated = filtered.map(p => p._tickers ? p : { ...p, _tickers: extractTickers(p.title) });
   renderStockTickers(cloudEl, annotated, stocksSourceFilter ? [] : stocksXCache);
-  renderSentiment(document.getElementById('stocksSentiment'), annotated);
+
+  const sentResult = renderSentiment(upEl, downEl, annotated);
   renderStockPosts(listEl, annotated, activeTicker);
+
+  // Async: fetch market prices for the top sentiment tickers and re-render
+  if (sentResult) {
+    const topTickers = [...new Set([...sentResult.bullish, ...sentResult.bearish])].slice(0, 16);
+    if (topTickers.length) {
+      fetchTickerPrices(topTickers).then(prices => {
+        if (prices.size) renderSentiment(upEl, downEl, annotated, prices);
+      });
+    }
+  }
 }
 
 /** Filter stocks panel by subreddit source (dropdown) */
@@ -1117,67 +1127,64 @@ function renderStockTickersX(el, xSymbols) {
   );
 }
 
-function renderSentiment(el, posts) {
-  if (!el || !posts.length) return;
+/** Render bullish/bearish sentiment into two separate sidebar elements.
+ *  Returns { bullish, bearish } ticker arrays so caller can fetch prices.
+ *  Call again with a prices Map to add price / pct display. */
+function renderSentiment(upEl, downEl, posts, prices = new Map()) {
+  if (!upEl || !downEl || !posts.length) return null;
 
   const sentMap = computeTickerSentiment(posts);
-
-  // Only consider tickers mentioned in ≥2 posts with a clear signal
   const withSignal = [...sentMap.entries()]
     .filter(([, e]) => e.count >= 2 && e.net !== 0)
     .sort((a, b) => b[1].net - a[1].net);
 
-  const bullish = withSignal.filter(([, e]) => e.net > 0).slice(0, 6);
+  const bullish = withSignal.filter(([, e]) => e.net > 0).slice(0, 8);
   const bearish = withSignal.filter(([, e]) => e.net < 0)
-    .sort((a, b) => a[1].net - b[1].net)   // most negative first
-    .slice(0, 6);
-
-  if (!bullish.length && !bearish.length) {
-    el.innerHTML = '<div class="sentiment-empty">Not enough signal yet</div>';
-    return;
-  }
+    .sort((a, b) => a[1].net - b[1].net)
+    .slice(0, 8);
 
   const makeRow = (ticker, e, dir) => {
     const arrow = dir === 'up' ? '↑' : '↓';
     const cls   = dir === 'up' ? 'sent-up' : 'sent-down';
     const score = Math.round(Math.abs(e.net));
-    return `<div class="sent-row ${cls}" data-ticker="${ticker}"
-        title="${e.count} posts · score ${score}">
+    const q = prices.get(ticker);
+    const priceHtml = q?.price != null
+      ? `<span class="sent-price">$${q.price.toFixed(2)}</span>
+         <span class="sent-pct ${q.change >= 0 ? 'pos' : 'neg'}">${q.change >= 0 ? '+' : ''}${q.pct.toFixed(1)}%</span>`
+      : '';
+    return `<div class="sent-row ${cls}" data-ticker="${ticker}" title="${e.count} posts · signal ${score}">
       <span class="sent-arrow">${arrow}</span>
       <span class="sent-ticker">$${ticker}</span>
+      ${priceHtml}
       <span class="sent-score">${score}</span>
     </div>`;
   };
 
-  el.innerHTML = `
-    <div class="sentiment-col sentiment-bull">
-      <div class="sentiment-col-label">📈 trending up</div>
-      ${bullish.map(([t, e]) => makeRow(t, e, 'up')).join('') || '<div class="sentiment-empty">—</div>'}
-    </div>
-    <div class="sentiment-col sentiment-bear">
-      <div class="sentiment-col-label">📉 trending down</div>
-      ${bearish.map(([t, e]) => makeRow(t, e, 'down')).join('') || '<div class="sentiment-empty">—</div>'}
-    </div>
-  `;
+  upEl.innerHTML   = bullish.length ? bullish.map(([t, e]) => makeRow(t, e, 'up')).join('')
+                                    : '<div class="sentiment-empty">—</div>';
+  downEl.innerHTML = bearish.length ? bearish.map(([t, e]) => makeRow(t, e, 'down')).join('')
+                                    : '<div class="sentiment-empty">—</div>';
 
-  // Clicking a sentiment row filters posts just like a ticker pill
-  el.querySelectorAll('.sent-row').forEach(row =>
+  // Click-to-filter — sync across both elements
+  const allRows = [...upEl.querySelectorAll('.sent-row'), ...downEl.querySelectorAll('.sent-row')];
+  allRows.forEach(row =>
     row.addEventListener('click', () => {
       const ticker = row.dataset.ticker;
-      // Sync with pill selection
       activeTicker = activeTicker === ticker ? null : ticker;
-      document.querySelectorAll('.ticker-pill').forEach(t => {
-        t.classList.toggle('selected', t.dataset.ticker === activeTicker);
-      });
-      el.querySelectorAll('.sent-row').forEach(r =>
-        r.classList.toggle('selected', r.dataset.ticker === activeTicker)
-      );
+      document.querySelectorAll('.ticker-pill').forEach(t =>
+        t.classList.toggle('selected', t.dataset.ticker === activeTicker));
+      allRows.forEach(r => r.classList.toggle('selected', r.dataset.ticker === activeTicker));
       const clearBtn = document.getElementById('tickerClearBtn');
       if (clearBtn) clearBtn.style.display = activeTicker ? 'inline-block' : 'none';
       const listEl = document.getElementById('stocksPostsList');
       if (stocksCache && listEl) renderStockPosts(listEl, stocksCache, activeTicker);
     })
   );
+
+  return {
+    bullish: bullish.map(([t]) => t),
+    bearish: bearish.map(([t]) => t),
+  };
 }
 
 function renderStockPosts(el, posts, filterTicker) {
@@ -1333,38 +1340,93 @@ async function fetchRSS(url, count = 20, useR2J = true) {
   return [];
 }
 
-/** Parse raw RSS/Atom XML into item objects (with thumbnail extraction) */
+/** Extract thumbnail URL from an RSS/Atom XML item node.
+ *  Tries multiple strategies across different feed formats. */
+function extractThumbnail(n) {
+  const MEDIA_NS = 'http://search.yahoo.com/mrss/';
+
+  // 1. media:thumbnail — namespace-aware first, then prefixed fallback
+  const t1 = n.getElementsByTagNameNS(MEDIA_NS, 'thumbnail')[0]?.getAttribute('url')
+           || n.getElementsByTagName('media:thumbnail')[0]?.getAttribute('url');
+  if (t1) return t1;
+
+  // 2. media:content — prefer medium="image" or image mime/extension
+  const mediaEls = [
+    ...n.getElementsByTagNameNS(MEDIA_NS, 'content'),
+    ...n.getElementsByTagName('media:content'),
+  ];
+  // deduplicate (same node can appear via both selectors)
+  const seen = new Set();
+  const unique = mediaEls.filter(el => { const k = el.getAttribute('url'); return k && !seen.has(k) && seen.add(k); });
+  // prefer explicit image type/medium
+  for (const el of unique) {
+    const url    = el.getAttribute('url') || '';
+    const medium = el.getAttribute('medium') || '';
+    const type   = el.getAttribute('type')   || '';
+    if (medium === 'image' || type.startsWith('image/') || /\.(jpg|jpeg|png|webp|gif)(\?|$)/i.test(url)) return url;
+  }
+  // fall back to first media:content with any URL
+  if (unique[0]?.getAttribute('url')) return unique[0].getAttribute('url');
+
+  // 3. <enclosure type="image/...">
+  const enc = n.querySelector('enclosure');
+  if (enc && (enc.getAttribute('type') || '').startsWith('image/') && enc.getAttribute('url')) {
+    return enc.getAttribute('url');
+  }
+
+  // 4. First <img> in content:encoded (TechCrunch, many WP feeds)
+  const ce = n.getElementsByTagName('content:encoded')[0]?.textContent
+          || n.getElementsByTagNameNS('http://purl.org/rss/1.0/modules/content/', 'encoded')[0]?.textContent
+          || '';
+  if (ce) {
+    const m = ce.match(/<img[^>]+src=["']([^"']+)["']/i);
+    if (m?.[1]) return m[1];
+  }
+
+  // 5. First <img> in description/summary
+  const desc = n.querySelector('description')?.textContent || n.querySelector('summary')?.textContent || '';
+  if (desc) {
+    const m = desc.match(/<img[^>]+src=["']([^"']+)["']/i);
+    if (m?.[1]) return m[1];
+  }
+
+  return '';
+}
+
+/** Parse raw RSS/Atom XML into item objects */
 function parseXML(xmlStr) {
   try {
     const doc   = new DOMParser().parseFromString(xmlStr, 'text/xml');
     const nodes = [...doc.querySelectorAll('item, entry')];
     return nodes.map(n => {
-      const text  = sel => n.querySelector(sel)?.textContent?.trim() || '';
-      const attr  = (sel, a) => n.querySelector(sel)?.getAttribute(a) || '';
-      const link  = text('link') || attr('link[rel="alternate"]', 'href') || attr('link', 'href');
-      const pubDate = text('pubDate') || text('published') || text('updated');
-
-      // Thumbnail: try media:thumbnail → media:content → enclosure (image) → first <img> in description
-      const thumbnail =
-        n.getElementsByTagName('media:thumbnail')[0]?.getAttribute('url') ||
-        (() => {
-          const mc = n.getElementsByTagName('media:content')[0];
-          const t  = mc?.getAttribute('type') || '';
-          const u  = mc?.getAttribute('url')  || '';
-          return (t.startsWith('image/') || u.match(/\.(jpg|jpeg|png|webp|gif)(\?|$)/i)) ? u : '';
-        })() ||
-        (() => {
-          const enc = n.querySelector('enclosure');
-          return (enc?.getAttribute('type') || '').startsWith('image/') ? (enc.getAttribute('url') || '') : '';
-        })() ||
-        (() => {
-          const raw = text('description') || text('summary') || text('content');
-          return raw.match(/<img[^>]+src=["']([^"']+)["']/i)?.[1] || '';
-        })();
-
+      const text = sel => n.querySelector(sel)?.textContent?.trim() || '';
+      const attr = (sel, a) => n.querySelector(sel)?.getAttribute(a) || '';
+      const link = text('link') || attr('link[rel="alternate"]', 'href') || attr('link', 'href');
+      const pubDate   = text('pubDate') || text('published') || text('updated');
+      const thumbnail = extractThumbnail(n);
       return { title: text('title'), link, pubDate, thumbnail };
     }).filter(i => i.title && i.link);
   } catch { return []; }
+}
+
+/* ── Market price fetch (Yahoo Finance, batched) ─────────────────── */
+async function fetchTickerPrices(symbols) {
+  if (!symbols.length) return new Map();
+  const url = `https://query1.finance.yahoo.com/v7/finance/quote?symbols=${encodeURIComponent(symbols.join(','))}&fields=regularMarketPrice,regularMarketChange,regularMarketChangePercent`;
+  try {
+    const res = await fetchWithTimeout(`${MYPROXY}${encodeURIComponent(url)}`, 7000);
+    if (!res.ok) return new Map();
+    const data = await res.json();
+    const map  = new Map();
+    (data?.quoteResponse?.result || []).forEach(q => {
+      map.set(q.symbol, {
+        price:  q.regularMarketPrice           ?? null,
+        change: q.regularMarketChange          ?? null,
+        pct:    q.regularMarketChangePercent   ?? null,
+      });
+    });
+    return map;
+  } catch { return new Map(); }
 }
 
 /**

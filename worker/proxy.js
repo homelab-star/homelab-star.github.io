@@ -43,6 +43,9 @@ const ALLOWED_HOSTS = [
   'nitter.catsarch.com',
   // StockTwits public API
   'api.stocktwits.com',
+  // Yahoo Finance (market prices for trending tickers)
+  'query1.finance.yahoo.com',
+  'query2.finance.yahoo.com',
   // Random facts API
   'uselessfacts.jsph.pl',
 ];
