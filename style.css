@@ -168,24 +168,18 @@ button { font-family: var(--font); cursor: pointer; }
 .clear-cache-btn {
   background: transparent;
   border: 1px solid var(--border2);
-  color: var(--text3);
+  color: var(--text2);
   font-family: var(--font);
-  font-size: .9rem;
-  width: 28px;
-  height: 28px;
+  font-size: .78rem;
+  letter-spacing: .06em;
+  padding: 5px 11px;
   border-radius: var(--radius);
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  line-height: 1;
-  padding: 0;
   transition: color .15s, border-color .15s, background .15s;
 }
 .clear-cache-btn:hover { color: var(--red); border-color: var(--red); }
 .clear-cache-btn.cleared {
   color: var(--green);
   border-color: var(--green);
-  font-size: .78rem;
 }
 
 .theme-btn {
@@ -250,15 +244,17 @@ button { font-family: var(--font); cursor: pointer; }
   white-space: nowrap;
 }
 
-/* ── Main 2-column Layout ─────────────────────────────────────────── */
+/* ── Main layout: sidebar | center | right-dock ───────────────────── */
 .main-layout {
-  display: grid;
-  grid-template-columns: var(--sidebar-w) 1fr;
+  display: flex;
+  align-items: stretch;
   min-height: calc(100vh - var(--header-h) - 49px);
 }
 
 /* ── Sidebar ──────────────────────────────────────────────────────── */
 .sidebar {
+  width: var(--sidebar-w);
+  flex-shrink: 0;
   padding: 14px 14px 16px;
   border-right: 1px solid var(--border);
   position: sticky;
@@ -374,10 +370,31 @@ button { font-family: var(--font); cursor: pointer; }
 
 /* ── News Items ───────────────────────────────────────────────────── */
 .news-item {
+  display: flex;
+  gap: 10px;
+  align-items: flex-start;
   padding: 9px 0;
   border-bottom: 1px solid var(--border);
 }
 .news-item:last-child { border-bottom: none; }
+
+.news-thumb-wrap {
+  flex-shrink: 0;
+  width: 76px;
+  height: 52px;
+  border-radius: 3px;
+  overflow: hidden;
+  border: 1px solid var(--border);
+  background: var(--bg3);
+}
+.news-thumb {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  display: block;
+}
+
+.news-body { flex: 1; min-width: 0; }
 
 .news-title {
   display: block;
@@ -448,34 +465,38 @@ button { font-family: var(--font); cursor: pointer; }
   border-color: var(--accent-dim);
 }
 
-/* ── Overlay ──────────────────────────────────────────────────────── */
-.overlay {
-  display: none;
-  position: fixed;
-  inset: 0;
-  background: rgba(0,0,0,.45);
-  z-index: 190;
-  backdrop-filter: blur(1px);
-}
-.overlay.open { display: block; }
-
-/* ── AI Slide Panel ───────────────────────────────────────────────── */
-.ai-panel {
-  position: fixed;
-  top: 0;
-  right: calc(-1 * var(--panel-w) - 2px);
+/* ── Right dock — dockable panel container ────────────────────────── */
+.right-dock {
+  flex-shrink: 0;
   width: var(--panel-w);
-  height: 100vh;
-  background: var(--bg2);
-  border-left: 1px solid var(--border2);
-  z-index: 200;
-  display: flex;
-  flex-direction: column;
-  transition: right .28s cubic-bezier(.4,0,.2,1);
-  box-shadow: -6px 0 32px rgba(0,0,0,.55);
+  max-width: 0;
+  overflow: hidden;
+  transition: max-width .3s cubic-bezier(.4,0,.2,1), border-color .3s;
+  border-left: 1px solid transparent;
+  position: sticky;
+  top: calc(var(--header-h) + 49px);
+  height: calc(100vh - var(--header-h) - 49px);
+  align-self: start;
 }
-.ai-panel.open { right: 0; }
+.right-dock.open {
+  max-width: var(--panel-w);
+  border-left-color: var(--border2);
+}
 
+/* Panels inside the dock — only the active one is visible */
+.right-dock .ai-panel,
+.right-dock .stocks-panel {
+  display: none;
+  flex-direction: column;
+  width: var(--panel-w);
+  height: 100%;
+  background: var(--bg2);
+  overflow: hidden;
+}
+.right-dock .ai-panel.active,
+.right-dock .stocks-panel.active { display: flex; }
+
+/* ── AI panel header ──────────────────────────────────────────────── */
 .ai-panel-header {
   display: flex;
   align-items: center;
@@ -671,23 +692,7 @@ html[data-theme="light"] .tag-entity.selected { color: var(--text); border-color
   font-weight: 600;
 }
 
-/* ── Stocks slide panel ───────────────────────────────────────────── */
-.stocks-panel {
-  position: fixed;
-  top: 0;
-  right: calc(-1 * var(--panel-w) - 2px);
-  width: var(--panel-w);
-  height: 100vh;
-  background: var(--bg2);
-  border-left: 1px solid var(--border2);
-  z-index: 200;
-  display: flex;
-  flex-direction: column;
-  transition: right .28s cubic-bezier(.4,0,.2,1);
-  box-shadow: -6px 0 32px rgba(0,0,0,.55);
-}
-.stocks-panel.open { right: 0; }
-
+/* ── Stocks panel header ──────────────────────────────────────────── */
 .stocks-panel-header {
   display: flex;
   align-items: center;
@@ -896,12 +901,39 @@ html[data-theme="light"] .ticker-pill.selected { background: var(--green); color
 
 /* ── Responsive tweaks ────────────────────────────────────────────── */
 @media (max-width: 860px) {
-  :root { --panel-w: 92%; }
+  :root { --panel-w: 100%; }
 
-  .main-layout { grid-template-columns: 1fr; }
+  .main-layout { flex-direction: column; }
+
+  /* Dock becomes a full-width block below center on mobile */
+  .right-dock {
+    position: static;
+    height: auto;
+    max-width: 0;
+    max-height: 0;
+    border-left: none;
+    border-top: 1px solid transparent;
+    transition: max-width .3s cubic-bezier(.4,0,.2,1),
+                max-height .4s cubic-bezier(.4,0,.2,1),
+                border-color .3s;
+    overflow: hidden;
+  }
+  .right-dock.open {
+    max-width: 100%;
+    max-height: 90vh;
+    border-left: none;
+    border-top-color: var(--border2);
+  }
+  .right-dock .ai-panel,
+  .right-dock .stocks-panel {
+    width: 100%;
+    height: auto;
+    max-height: 90vh;
+  }
 
   /* Sidebar becomes a horizontal header bar on mobile */
   .sidebar {
+    width: 100%;
     position: static;
     max-height: none;
     border-right: none;

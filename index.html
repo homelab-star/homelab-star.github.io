@@ -25,7 +25,7 @@
         <button class="font-btn" onclick="changeFontSize(-1)" title="Decrease font size">A−</button>
         <button class="font-btn" onclick="changeFontSize(1)"  title="Increase font size">A+</button>
       </div>
-      <button class="clear-cache-btn" id="clearCacheBtn" onclick="clearCache()" title="Clear all cached data and re-fetch everything">⊗</button>
+      <button class="clear-cache-btn" id="clearCacheBtn" onclick="clearCache()" title="Clear all cached data and re-fetch everything">⊗ Clear</button>
       <button class="theme-btn" id="themeBtn" onclick="toggleTheme()" title="Switch to light mode">☀</button>
       <button class="stocks-toggle-btn" id="stocksToggleBtn" onclick="toggleStocksPanel()">
         ▲ Stocks
@@ -43,7 +43,7 @@
     <button class="fact-refresh-btn" onclick="loadFact()" title="New fact">↺</button>
   </div>
 
-  <!-- ── Main 2-column layout ───────────────────────────────────── -->
+  <!-- ── Main layout: sidebar | center | right-dock ─────────────── -->
   <div class="main-layout">
 
     <!-- Left Sidebar: Bookmarks -->
@@ -117,84 +117,88 @@
       </section>
 
     </main>
+
+    <!-- ── Right Dock: dockable AI + Stocks panels ────────────── -->
+    <div class="right-dock" id="rightDock">
+
+      <!-- AI News Panel -->
+      <aside class="ai-panel" id="aiPanel">
+        <div class="ai-panel-header">
+          <span class="section-label">TOP AI NEWS</span>
+          <div class="ai-panel-header-actions">
+            <select class="source-dropdown" id="aiSourceDropdown" onchange="filterAIBySource(this.value)" title="Filter by source">
+              <option value="">All sources</option>
+              <option value="x.com">𝕏 X.com / Twitter</option>
+              <option value="news.ycombinator.com">Hacker News</option>
+              <option value="techcrunch.com">TechCrunch</option>
+              <option value="theverge.com">The Verge</option>
+              <option value="venturebeat.com">VentureBeat</option>
+              <option value="huggingface.co">HuggingFace</option>
+              <option value="arstechnica.com">Ars Technica</option>
+            </select>
+            <button class="icon-btn" onclick="loadAINews(true)" title="Refresh">↺</button>
+            <button class="icon-btn close-btn" onclick="toggleAIPanel()">✕</button>
+          </div>
+        </div>
+
+        <!-- Tag cloud (top, fixed) -->
+        <div class="ai-tags-section">
+          <div class="section-label">TRENDING TOPICS
+            <button class="tag-clear-btn" id="tagClearBtn" onclick="clearTagFilter()" style="display:none">✕ clear</button>
+          </div>
+          <div class="tag-cloud" id="tagCloud"></div>
+        </div>
+
+        <!-- Articles list (scrollable) -->
+        <div class="ai-articles" id="aiNewsList">
+          <div class="loading-msg">Loading AI articles…</div>
+        </div>
+      </aside>
+
+      <!-- Stocks Panel -->
+      <aside class="stocks-panel" id="stocksPanel">
+        <div class="stocks-panel-header">
+          <span class="section-label">TRENDING STOCKS</span>
+          <div class="stocks-panel-header-actions">
+            <select class="source-dropdown" id="stocksSourceDropdown" onchange="filterStocksBySource(this.value)" title="Filter by source">
+              <option value="">All sources</option>
+              <option value="x.com">𝕏 X.com / StockTwits</option>
+              <option value="stocks">r/stocks</option>
+              <option value="wallstreetbets">r/wallstreetbets</option>
+              <option value="options">r/options</option>
+              <option value="coveredcalls">r/coveredcalls</option>
+              <option value="daytrading">r/daytrading</option>
+              <option value="stockstobuytoday">r/stockstobuytoday</option>
+              <option value="valueinvesting">r/valueinvesting</option>
+              <option value="dividends">r/dividends</option>
+            </select>
+            <button class="icon-btn" onclick="loadStocksPanel(true)" title="Refresh">↺</button>
+            <button class="icon-btn close-btn" onclick="toggleStocksPanel()">✕</button>
+          </div>
+        </div>
+
+        <!-- Ticker cloud (top, fixed) -->
+        <div class="stocks-tickers-section">
+          <div class="section-label">HOT TICKERS
+            <button class="tag-clear-btn" id="tickerClearBtn" onclick="clearTickerFilter()" style="display:none">✕ clear</button>
+          </div>
+          <div class="ticker-cloud" id="tickerCloud"></div>
+        </div>
+
+        <!-- Sentiment signals -->
+        <div class="stocks-sentiment-section">
+          <div class="sentiment-grid" id="stocksSentiment"></div>
+        </div>
+
+        <!-- Posts list (scrollable) -->
+        <div class="stocks-posts" id="stocksPostsList">
+          <div class="loading-msg">Loading posts…</div>
+        </div>
+      </aside>
+
+    </div><!-- /right-dock -->
+
   </div><!-- /main-layout -->
-
-  <!-- ── AI News Slide Panel ────────────────────────────────────── -->
-  <div class="overlay" id="overlay" onclick="closeAllPanels()"></div>
-
-  <aside class="ai-panel" id="aiPanel">
-    <div class="ai-panel-header">
-      <span class="section-label">TOP AI NEWS</span>
-      <div class="ai-panel-header-actions">
-        <select class="source-dropdown" id="aiSourceDropdown" onchange="filterAIBySource(this.value)" title="Filter by source">
-          <option value="">All sources</option>
-          <option value="x.com">𝕏 X.com / Twitter</option>
-          <option value="news.ycombinator.com">Hacker News</option>
-          <option value="techcrunch.com">TechCrunch</option>
-          <option value="theverge.com">The Verge</option>
-          <option value="venturebeat.com">VentureBeat</option>
-          <option value="huggingface.co">HuggingFace</option>
-          <option value="arstechnica.com">Ars Technica</option>
-        </select>
-        <button class="icon-btn" onclick="loadAINews(true)" title="Refresh">↺</button>
-        <button class="icon-btn close-btn" onclick="toggleAIPanel()">✕</button>
-      </div>
-    </div>
-
-    <!-- Tag cloud (top, fixed) -->
-    <div class="ai-tags-section">
-      <div class="section-label">TRENDING TOPICS
-        <button class="tag-clear-btn" id="tagClearBtn" onclick="clearTagFilter()" style="display:none">✕ clear</button>
-      </div>
-      <div class="tag-cloud" id="tagCloud"></div>
-    </div>
-
-    <!-- Articles list (below tags, scrollable) -->
-    <div class="ai-articles" id="aiNewsList">
-      <div class="loading-msg">Loading AI articles…</div>
-    </div>
-  </aside>
-
-  <!-- ── Stocks Slide Panel ─────────────────────────────────────── -->
-  <aside class="stocks-panel" id="stocksPanel">
-    <div class="stocks-panel-header">
-      <span class="section-label">TRENDING STOCKS</span>
-      <div class="stocks-panel-header-actions">
-        <select class="source-dropdown" id="stocksSourceDropdown" onchange="filterStocksBySource(this.value)" title="Filter by source">
-          <option value="">All sources</option>
-          <option value="x.com">𝕏 X.com / StockTwits</option>
-          <option value="stocks">r/stocks</option>
-          <option value="wallstreetbets">r/wallstreetbets</option>
-          <option value="options">r/options</option>
-          <option value="coveredcalls">r/coveredcalls</option>
-          <option value="daytrading">r/daytrading</option>
-          <option value="stockstobuytoday">r/stockstobuytoday</option>
-          <option value="valueinvesting">r/valueinvesting</option>
-          <option value="dividends">r/dividends</option>
-        </select>
-        <button class="icon-btn" onclick="loadStocksPanel(true)" title="Refresh">↺</button>
-        <button class="icon-btn close-btn" onclick="toggleStocksPanel()">✕</button>
-      </div>
-    </div>
-
-    <!-- Ticker cloud (top, fixed) -->
-    <div class="stocks-tickers-section">
-      <div class="section-label">HOT TICKERS
-        <button class="tag-clear-btn" id="tickerClearBtn" onclick="clearTickerFilter()" style="display:none">✕ clear</button>
-      </div>
-      <div class="ticker-cloud" id="tickerCloud"></div>
-    </div>
-
-    <!-- Sentiment signals (fixed, between tickers and posts) -->
-    <div class="stocks-sentiment-section">
-      <div class="sentiment-grid" id="stocksSentiment"></div>
-    </div>
-
-    <!-- Posts list (scrollable) -->
-    <div class="stocks-posts" id="stocksPostsList">
-      <div class="loading-msg">Loading posts…</div>
-    </div>
-  </aside>
 
   <script src="script.js"></script>
 </body>

@@ -350,12 +350,20 @@ function renderNews(el, items) {
     el.innerHTML = '<div class="loading-msg error">RSS feeds temporarily unavailable.</div>';
     return;
   }
-  const rows = items.map((item, i) => `
-    <div class="news-item${i >= LIST_INITIAL ? ' list-hidden' : ''}"${i >= LIST_INITIAL ? ' data-extra="true"' : ''}>
-      <a class="news-title" href="${esc(item.link)}" target="_blank" rel="noreferrer">${esc(item.title)}</a>
-      <div class="news-meta">${timeAgo(item.pubDate)} · ${domain(item.link)}</div>
-    </div>
-  `).join('');
+  const rows = items.map((item, i) => {
+    // Thumbnail from parseXML or rss2json's 'thumbnail' field
+    const thumbUrl = item.thumbnail || item.enclosure?.link || '';
+    const thumbHtml = thumbUrl
+      ? `<div class="news-thumb-wrap"><img class="news-thumb" src="${esc(thumbUrl)}" loading="lazy" alt="" onerror="this.closest('.news-thumb-wrap').style.display='none'"></div>`
+      : '';
+    return `<div class="news-item${i >= LIST_INITIAL ? ' list-hidden' : ''}"${i >= LIST_INITIAL ? ' data-extra="true"' : ''}>
+      ${thumbHtml}
+      <div class="news-body">
+        <a class="news-title" href="${esc(item.link)}" target="_blank" rel="noreferrer">${esc(item.title)}</a>
+        <div class="news-meta">${timeAgo(item.pubDate)} · ${domain(item.link)}</div>
+      </div>
+    </div>`;
+  }).join('');
   const extra = items.length - LIST_INITIAL;
   const btn   = extra > 0
     ? `<button class="show-more-btn" onclick="toggleListExpand(this)">SHOW MORE (${extra} more) ↓</button>`
@@ -509,23 +517,22 @@ async function fetchStockTwitsTrending() {
 function toggleAIPanel() {
   if (stocksPanelOpen) _closeStocks();   // close sibling panel first
   aiPanelOpen = !aiPanelOpen;
-  document.getElementById('aiPanel').classList.toggle('open', aiPanelOpen);
-  document.getElementById('overlay').classList.toggle('open', aiPanelOpen);
+  document.getElementById('aiPanel').classList.toggle('active', aiPanelOpen);
+  document.getElementById('rightDock').classList.toggle('open', aiPanelOpen);
   document.getElementById('aiToggleBtn').classList.toggle('active', aiPanelOpen);
   if (aiPanelOpen) loadAINews(false);    // renders from cache instantly if pre-warmed
 }
 
 function _closeAI() {
   aiPanelOpen = false;
-  document.getElementById('aiPanel').classList.remove('open');
-  document.getElementById('overlay').classList.remove('open');
+  document.getElementById('aiPanel').classList.remove('active');
+  if (!stocksPanelOpen) document.getElementById('rightDock').classList.remove('open');
   document.getElementById('aiToggleBtn').classList.remove('active');
 }
 
 function closeAllPanels() {
   if (aiPanelOpen)     _closeAI();
   if (stocksPanelOpen) _closeStocks();
-  document.getElementById('overlay').classList.remove('open');
 }
 
 async function loadAINews(force = false) {
@@ -928,8 +935,8 @@ async function fetchSubredditRaw(sub) {
 function toggleStocksPanel() {
   if (aiPanelOpen) _closeAI();              // close sibling panel first
   stocksPanelOpen = !stocksPanelOpen;
-  document.getElementById('stocksPanel').classList.toggle('open', stocksPanelOpen);
-  document.getElementById('overlay').classList.toggle('open', stocksPanelOpen);
+  document.getElementById('stocksPanel').classList.toggle('active', stocksPanelOpen);
+  document.getElementById('rightDock').classList.toggle('open', stocksPanelOpen);
   document.getElementById('stocksToggleBtn').classList.toggle('active', stocksPanelOpen);
   if (stocksPanelOpen) loadStocksPanel(false);  // renders from cache instantly if pre-warmed
 }
@@ -937,8 +944,8 @@ function toggleStocksPanel() {
 /** Internal close helper (no toggle — just close) */
 function _closeStocks() {
   stocksPanelOpen = false;
-  document.getElementById('stocksPanel').classList.remove('open');
-  document.getElementById('overlay').classList.remove('open');
+  document.getElementById('stocksPanel').classList.remove('active');
+  if (!aiPanelOpen) document.getElementById('rightDock').classList.remove('open');
   document.getElementById('stocksToggleBtn').classList.remove('active');
 }
 
@@ -1322,7 +1329,7 @@ async function fetchRSS(url, count = 20, useR2J = true) {
   return [];
 }
 
-/** Parse raw RSS/Atom XML into item objects */
+/** Parse raw RSS/Atom XML into item objects (with thumbnail extraction) */
 function parseXML(xmlStr) {
   try {
     const doc   = new DOMParser().parseFromString(xmlStr, 'text/xml');
@@ -1331,7 +1338,27 @@ function parseXML(xmlStr) {
       const text  = sel => n.querySelector(sel)?.textContent?.trim() || '';
       const attr  = (sel, a) => n.querySelector(sel)?.getAttribute(a) || '';
       const link  = text('link') || attr('link[rel="alternate"]', 'href') || attr('link', 'href');
-      return { title: text('title'), link, pubDate: text('pubDate') || text('published') || text('updated') };
+      const pubDate = text('pubDate') || text('published') || text('updated');
+
+      // Thumbnail: try media:thumbnail → media:content → enclosure (image) → first <img> in description
+      const thumbnail =
+        n.getElementsByTagName('media:thumbnail')[0]?.getAttribute('url') ||
+        (() => {
+          const mc = n.getElementsByTagName('media:content')[0];
+          const t  = mc?.getAttribute('type') || '';
+          const u  = mc?.getAttribute('url')  || '';
+          return (t.startsWith('image/') || u.match(/\.(jpg|jpeg|png|webp|gif)(\?|$)/i)) ? u : '';
+        })() ||
+        (() => {
+          const enc = n.querySelector('enclosure');
+          return (enc?.getAttribute('type') || '').startsWith('image/') ? (enc.getAttribute('url') || '') : '';
+        })() ||
+        (() => {
+          const raw = text('description') || text('summary') || text('content');
+          return raw.match(/<img[^>]+src=["']([^"']+)["']/i)?.[1] || '';
+        })();
+
+      return { title: text('title'), link, pubDate, thumbnail };
     }).filter(i => i.title && i.link);
   } catch { return []; }
 }
