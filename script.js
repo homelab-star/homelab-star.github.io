@@ -1508,7 +1508,7 @@ function applyTheme(theme, animate = true) {
 ════════════════════════════════════════════════════════════════════ */
 const FONT_MIN = 11;
 const FONT_MAX = 18;
-const FONT_DEFAULT = 13.5;
+const FONT_DEFAULT = 15.5;
 
 function initFontSize() {
   const saved = parseFloat(localStorage.getItem('dash_fontSize'));
