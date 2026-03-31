@@ -93,17 +93,20 @@ const NITTER_AI_QUERY = encodeURIComponent('(AI OR LLM OR openai OR anthropic OR
 
 /* ── State ────────────────────────────────────────────────────────── */
 const cache = { news: {}, reddit: {} };
+let activeTab      = 'home';      // 'home' | 'ai' | 'stocks'
 let aiCache        = null;
-let aiPanelOpen    = false;
 let activeTag      = null;
 let aiSourceFilter = '';          // domain string e.g. 'techcrunch.com' or 'x.com'
 let stocksCache    = null;
 let stocksXCache   = [];          // StockTwits trending symbols [{symbol, count, title}]
-let stocksPanelOpen = false;
 let activeTicker   = null;
 let stocksSourceFilter = '';      // subreddit string e.g. 'wallstreetbets' or 'x.com'
 let refreshTimer   = null;
 let countdown      = REFRESH_MS / 1000;
+
+// Convenience flags used by render functions to decide whether to update DOM
+const aiPanelOpen     = () => activeTab === 'ai';
+const stocksPanelOpen = () => activeTab === 'stocks';
 
 /* ════════════════════════════════════════════════════════════════════
    INIT
@@ -112,6 +115,7 @@ document.addEventListener('DOMContentLoaded', () => {
   initTheme();
   initFontSize();
   initSidebar();
+  initTab();
   loadFact();
   initTabs('.news-tabs',   'tab',  loadNews,   'world');
   initTabs('.reddit-tabs', 'tab',  loadReddit, 'investing');
@@ -137,13 +141,13 @@ function refreshAll() {
   if (stDd) stDd.value = '';
   loadFact();
 
-  // Active tabs: re-render from localStorage immediately, bg-fetch fresh data
+  // Active visible content: re-render from localStorage, bg-fetch fresh data
   const nTab = document.querySelector('.news-tabs .tab.active');
   const rTab = document.querySelector('.reddit-tabs .tab.active');
   if (nTab) loadNews(nTab.dataset.tab);
   if (rTab) loadReddit(rTab.dataset.sub);
-  if (aiPanelOpen)     loadAINews(true);
-  if (stocksPanelOpen) loadStocksPanel(true);
+  if (aiPanelOpen())     loadAINews(true);
+  if (stocksPanelOpen()) loadStocksPanel(true);
 
   // Re-warm all other tabs in background
   setTimeout(prefetchAll, 2000);
@@ -180,8 +184,8 @@ function clearCache() {
   const rTab = document.querySelector('.reddit-tabs .tab.active');
   if (nTab) loadNews(nTab.dataset.tab);
   if (rTab) loadReddit(rTab.dataset.sub);
-  if (aiPanelOpen)     loadAINews(true);
-  if (stocksPanelOpen) loadStocksPanel(true);
+  if (aiPanelOpen())     loadAINews(true);
+  if (stocksPanelOpen()) loadStocksPanel(true);
 
   // Background-refresh every other tab/panel staggered
   ALL_NEWS_TABS
@@ -514,26 +518,42 @@ async function fetchStockTwitsTrending() {
   } catch { return []; }
 }
 
-function toggleAIPanel() {
-  if (stocksPanelOpen) _closeStocks();   // close sibling panel first
-  aiPanelOpen = !aiPanelOpen;
-  document.getElementById('aiPanel').classList.toggle('active', aiPanelOpen);
-  document.getElementById('rightDock').classList.toggle('open', aiPanelOpen);
-  document.getElementById('aiToggleBtn').classList.toggle('active', aiPanelOpen);
-  if (aiPanelOpen) loadAINews(false);    // renders from cache instantly if pre-warmed
+/* ════════════════════════════════════════════════════════════════════
+   TAB NAVIGATION
+════════════════════════════════════════════════════════════════════ */
+function switchTab(tab) {
+  if (activeTab === tab) return;
+  activeTab = tab;
+
+  // Update nav-link active states
+  document.querySelectorAll('.nav-link[data-page]').forEach(el => {
+    el.classList.toggle('active', el.dataset.page === tab);
+  });
+
+  // Show the matching page-view
+  const pageId = 'page' + tab.charAt(0).toUpperCase() + tab.slice(1);
+  document.querySelectorAll('.page-view').forEach(el => {
+    el.classList.toggle('active', el.id === pageId);
+  });
+
+  // Load data for the newly active tab
+  if (tab === 'ai')     loadAINews(false);
+  if (tab === 'stocks') loadStocksPanel(false);
+
+  localStorage.setItem('dash_activeTab', tab);
 }
 
-function _closeAI() {
-  aiPanelOpen = false;
-  document.getElementById('aiPanel').classList.remove('active');
-  if (!stocksPanelOpen) document.getElementById('rightDock').classList.remove('open');
-  document.getElementById('aiToggleBtn').classList.remove('active');
+function initTab() {
+  const saved = localStorage.getItem('dash_activeTab') || 'home';
+  // Apply without triggering data loads — page markup already has .active on #pageHome
+  activeTab = saved;
+  if (saved !== 'home') switchTab(saved);
 }
 
-function closeAllPanels() {
-  if (aiPanelOpen)     _closeAI();
-  if (stocksPanelOpen) _closeStocks();
-}
+// Legacy shims — kept so any cached HTML calling these still works
+function toggleAIPanel()     { switchTab(activeTab === 'ai'     ? 'home' : 'ai');     }
+function toggleStocksPanel() { switchTab(activeTab === 'stocks' ? 'home' : 'stocks'); }
+function closeAllPanels()    { switchTab('home'); }
 
 async function loadAINews(force = false) {
   const listEl  = document.getElementById('aiNewsList');
@@ -560,7 +580,7 @@ async function loadAINews(force = false) {
   aiFetching = true;
 
   // Only show spinner if panel is open and nothing cached yet
-  if (!aiCache && aiPanelOpen) {
+  if (!aiCache && aiPanelOpen()) {
     activeTag = null;
     listEl.innerHTML  = `<div class="loading-msg">Fetching AI articles… (0 / ${FEEDS.ai.length})</div>`;
     cloudEl.innerHTML = '';
@@ -571,7 +591,7 @@ async function loadAINews(force = false) {
     // Fetch RSS feeds sequentially (rss2json rate-limit friendly)
     // Fetch 25 per feed so we have a bigger pool to rank from
     for (let i = 0; i < FEEDS.ai.length; i++) {
-      if (!aiCache && aiPanelOpen)
+      if (!aiCache && aiPanelOpen())
         listEl.innerHTML = `<div class="loading-msg">Fetching AI articles… (${i + 1} / ${FEEDS.ai.length})</div>`;
       const items = await fetchRSS(FEEDS.ai[i], 25);
       all.push(...items);
@@ -618,7 +638,7 @@ async function loadAINews(force = false) {
   }
 
   // Only update DOM if panel is open
-  if (aiPanelOpen) {
+  if (aiPanelOpen()) {
     renderAINews(listEl, aiCache);
     renderTagCloud(cloudEl, aiCache);
   }
@@ -932,22 +952,6 @@ async function fetchSubredditRaw(sub) {
   return [];
 }
 
-function toggleStocksPanel() {
-  if (aiPanelOpen) _closeAI();              // close sibling panel first
-  stocksPanelOpen = !stocksPanelOpen;
-  document.getElementById('stocksPanel').classList.toggle('active', stocksPanelOpen);
-  document.getElementById('rightDock').classList.toggle('open', stocksPanelOpen);
-  document.getElementById('stocksToggleBtn').classList.toggle('active', stocksPanelOpen);
-  if (stocksPanelOpen) loadStocksPanel(false);  // renders from cache instantly if pre-warmed
-}
-
-/** Internal close helper (no toggle — just close) */
-function _closeStocks() {
-  stocksPanelOpen = false;
-  document.getElementById('stocksPanel').classList.remove('active');
-  if (!aiPanelOpen) document.getElementById('rightDock').classList.remove('open');
-  document.getElementById('stocksToggleBtn').classList.remove('active');
-}
 
 async function loadStocksPanel(force = false) {
   const listEl  = document.getElementById('stocksPostsList');
@@ -977,7 +981,7 @@ async function loadStocksPanel(force = false) {
   stocksFetching = true;
 
   // Only show spinner if panel is open and nothing cached yet
-  if (!stocksCache && stocksPanelOpen) {
+  if (!stocksCache && stocksPanelOpen()) {
     listEl.innerHTML = `<div class="loading-msg">Fetching ${STOCKS_SUBS.length} subreddits…</div>`;
     cloudEl.innerHTML = '';
     const sentEl = document.getElementById('stocksSentiment');
@@ -1011,12 +1015,12 @@ async function loadStocksPanel(force = false) {
   }
 
   if (!stocksCache) {
-    if (stocksPanelOpen) listEl.innerHTML = '<div class="loading-msg error">Could not load posts.</div>';
+    if (stocksPanelOpen()) listEl.innerHTML = '<div class="loading-msg error">Could not load posts.</div>';
     return;
   }
 
   // Only update DOM if panel is open
-  if (stocksPanelOpen) renderAllStocks(cloudEl, listEl, stocksCache);
+  if (stocksPanelOpen()) renderAllStocks(cloudEl, listEl, stocksCache);
 }
 
 /** Render tickers + sentiment + posts in one shot */

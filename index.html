@@ -16,7 +16,9 @@
     <div class="header-left">
       <span class="logo">⊞</span>
       <nav>
-        <a href="#" class="nav-link active">Home</a>
+        <a href="#" class="nav-link active" data-page="home"   onclick="switchTab('home');   return false;">Home</a>
+        <a href="#" class="nav-link"        data-page="ai"     onclick="switchTab('ai');     return false;">◈ AI News</a>
+        <a href="#" class="nav-link"        data-page="stocks" onclick="switchTab('stocks'); return false;">▲ Stocks</a>
       </nav>
     </div>
     <div class="header-right">
@@ -27,12 +29,6 @@
       </div>
       <button class="clear-cache-btn" id="clearCacheBtn" onclick="clearCache()" title="Clear all cached data and re-fetch everything">⊗ Clear</button>
       <button class="theme-btn" id="themeBtn" onclick="toggleTheme()" title="Switch to light mode">☀</button>
-      <button class="stocks-toggle-btn" id="stocksToggleBtn" onclick="toggleStocksPanel()">
-        ▲ Stocks
-      </button>
-      <button class="ai-toggle-btn" id="aiToggleBtn" onclick="toggleAIPanel()">
-        ◈ AI News
-      </button>
     </div>
   </header>
 
@@ -43,160 +39,157 @@
     <button class="fact-refresh-btn" onclick="loadFact()" title="New fact">↺</button>
   </div>
 
-  <!-- ── Main layout: sidebar | center | right-dock ─────────────── -->
+  <!-- ── Main layout ────────────────────────────────────────────── -->
   <div class="main-layout">
 
-    <!-- Left Sidebar: Bookmarks -->
-    <aside class="sidebar">
-      <div class="sidebar-header">
-        <span class="section-label">BOOKMARKS</span>
-        <button class="sidebar-toggle" id="sidebarToggle" onclick="toggleSidebar()" title="Toggle bookmarks">▾</button>
-      </div>
+    <!-- ══ HOME tab ════════════════════════════════════════════════ -->
+    <div class="page-view active" id="pageHome">
 
-      <div class="sidebar-content" id="sidebarContent">
-        <div class="bookmark-group">
-          <ul class="bookmark-list">
-            <li><a href="https://finviz.com/" target="_blank" rel="noreferrer">Finviz <span class="ext">↗</span></a></li>
-            <li><a href="https://finance.yahoo.com/chart/NFLX" target="_blank" rel="noreferrer">Yahoo Chart <span class="ext">↗</span></a></li>
-            <li><a href="https://mail.google.com/mail/u/0/" target="_blank" rel="noreferrer">Gmail <span class="ext">↗</span></a></li>
-            <li><a href="https://www.redfin.com/" target="_blank" rel="noreferrer">Redfin <span class="ext">↗</span></a></li>
-            <li><a href="https://slickdeals.net/forums/forumdisplay.php?f=9" target="_blank" rel="noreferrer">Slickdeals <span class="ext">↗</span></a></li>
-          </ul>
+      <!-- Left Sidebar: Bookmarks -->
+      <aside class="sidebar">
+        <div class="sidebar-header">
+          <span class="section-label">BOOKMARKS</span>
+          <button class="sidebar-toggle" id="sidebarToggle" onclick="toggleSidebar()" title="Toggle bookmarks">▾</button>
         </div>
 
-        <div class="bookmark-group">
-          <div class="bookmark-group-title" style="--group-color: hsl(10,70%,60%)">News</div>
-          <ul class="bookmark-list">
-            <li><a href="https://www.greatandhra.com/" target="_blank" rel="noreferrer">Greatandhra <span class="ext">↗</span></a></li>
-            <li><a href="https://www.gulte.com/" target="_blank" rel="noreferrer">Gulte <span class="ext">↗</span></a></li>
-            <li><a href="https://www.cnn.com/" target="_blank" rel="noreferrer">CNN <span class="ext">↗</span></a></li>
-            <li><a href="https://www.yahoo.com/" target="_blank" rel="noreferrer">Yahoo <span class="ext">↗</span></a></li>
-          </ul>
-        </div>
-
-        <div class="bookmark-group">
-          <div class="bookmark-group-title" style="--group-color: hsl(200,50%,60%)">Sports</div>
-          <ul class="bookmark-list">
-            <li><a href="https://www.reddit.com/" target="_blank" rel="noreferrer">Reddit <span class="ext">↗</span></a></li>
-            <li><a href="https://www.espncricinfo.com/" target="_blank" rel="noreferrer">Cricinfo <span class="ext">↗</span></a></li>
-            <li><a href="https://www.espn.com/" target="_blank" rel="noreferrer">ESPN <span class="ext">↗</span></a></li>
-          </ul>
-        </div>
-      </div>
-    </aside>
-
-    <!-- Center Panel -->
-    <main class="center">
-
-      <!-- ── News Widget ───────────────────────────────────────── -->
-      <section class="widget">
-        <div class="tabs news-tabs">
-          <button class="tab active" data-tab="world">WORLD / US</button>
-          <button class="tab" data-tab="tech">TECH / AI</button>
-          <button class="tab" data-tab="sports">SPORTS</button>
-        </div>
-        <div class="tab-body" id="newsContent">
-          <div class="loading-msg">Loading news…</div>
-        </div>
-      </section>
-
-      <!-- ── Reddit Widget ─────────────────────────────────────── -->
-      <section class="widget">
-        <div class="tabs reddit-tabs">
-          <button class="tab active" data-sub="investing">R/INVESTING</button>
-          <button class="tab" data-sub="stocks">R/STOCKS</button>
-          <button class="tab" data-sub="realestate">R/REALESTATE</button>
-          <button class="tab" data-sub="options">R/OPTIONS</button>
-          <button class="tab" data-sub="wallstreetbets">R/WSB</button>
-          <button class="tab" data-sub="selfhosted">R/SELFHOSTED</button>
-          <button class="tab" data-sub="homelab">R/HOMELAB</button>
-        </div>
-        <div class="tab-body" id="redditContent">
-          <div class="loading-msg">Loading posts…</div>
-        </div>
-      </section>
-
-    </main>
-
-    <!-- ── Right Dock: dockable AI + Stocks panels ────────────── -->
-    <div class="right-dock" id="rightDock">
-
-      <!-- AI News Panel -->
-      <aside class="ai-panel" id="aiPanel">
-        <div class="ai-panel-header">
-          <span class="section-label">TOP AI NEWS</span>
-          <div class="ai-panel-header-actions">
-            <select class="source-dropdown" id="aiSourceDropdown" onchange="filterAIBySource(this.value)" title="Filter by source">
-              <option value="">All sources</option>
-              <option value="x.com">𝕏 X.com / Twitter</option>
-              <option value="news.ycombinator.com">Hacker News</option>
-              <option value="techcrunch.com">TechCrunch</option>
-              <option value="theverge.com">The Verge</option>
-              <option value="venturebeat.com">VentureBeat</option>
-              <option value="huggingface.co">HuggingFace</option>
-              <option value="arstechnica.com">Ars Technica</option>
-            </select>
-            <button class="icon-btn" onclick="loadAINews(true)" title="Refresh">↺</button>
-            <button class="icon-btn close-btn" onclick="toggleAIPanel()">✕</button>
+        <div class="sidebar-content" id="sidebarContent">
+          <div class="bookmark-group">
+            <ul class="bookmark-list">
+              <li><a href="https://finviz.com/" target="_blank" rel="noreferrer">Finviz <span class="ext">↗</span></a></li>
+              <li><a href="https://finance.yahoo.com/chart/NFLX" target="_blank" rel="noreferrer">Yahoo Chart <span class="ext">↗</span></a></li>
+              <li><a href="https://mail.google.com/mail/u/0/" target="_blank" rel="noreferrer">Gmail <span class="ext">↗</span></a></li>
+              <li><a href="https://www.redfin.com/" target="_blank" rel="noreferrer">Redfin <span class="ext">↗</span></a></li>
+              <li><a href="https://slickdeals.net/forums/forumdisplay.php?f=9" target="_blank" rel="noreferrer">Slickdeals <span class="ext">↗</span></a></li>
+            </ul>
           </div>
-        </div>
 
-        <!-- Tag cloud (top, fixed) -->
-        <div class="ai-tags-section">
-          <div class="section-label">TRENDING TOPICS
-            <button class="tag-clear-btn" id="tagClearBtn" onclick="clearTagFilter()" style="display:none">✕ clear</button>
+          <div class="bookmark-group">
+            <div class="bookmark-group-title" style="--group-color: hsl(10,70%,60%)">News</div>
+            <ul class="bookmark-list">
+              <li><a href="https://www.greatandhra.com/" target="_blank" rel="noreferrer">Greatandhra <span class="ext">↗</span></a></li>
+              <li><a href="https://www.gulte.com/" target="_blank" rel="noreferrer">Gulte <span class="ext">↗</span></a></li>
+              <li><a href="https://www.cnn.com/" target="_blank" rel="noreferrer">CNN <span class="ext">↗</span></a></li>
+              <li><a href="https://www.yahoo.com/" target="_blank" rel="noreferrer">Yahoo <span class="ext">↗</span></a></li>
+            </ul>
           </div>
-          <div class="tag-cloud" id="tagCloud"></div>
-        </div>
 
-        <!-- Articles list (scrollable) -->
-        <div class="ai-articles" id="aiNewsList">
-          <div class="loading-msg">Loading AI articles…</div>
+          <div class="bookmark-group">
+            <div class="bookmark-group-title" style="--group-color: hsl(200,50%,60%)">Sports</div>
+            <ul class="bookmark-list">
+              <li><a href="https://www.reddit.com/" target="_blank" rel="noreferrer">Reddit <span class="ext">↗</span></a></li>
+              <li><a href="https://www.espncricinfo.com/" target="_blank" rel="noreferrer">Cricinfo <span class="ext">↗</span></a></li>
+              <li><a href="https://www.espn.com/" target="_blank" rel="noreferrer">ESPN <span class="ext">↗</span></a></li>
+            </ul>
+          </div>
         </div>
       </aside>
 
-      <!-- Stocks Panel -->
-      <aside class="stocks-panel" id="stocksPanel">
-        <div class="stocks-panel-header">
-          <span class="section-label">TRENDING STOCKS</span>
-          <div class="stocks-panel-header-actions">
-            <select class="source-dropdown" id="stocksSourceDropdown" onchange="filterStocksBySource(this.value)" title="Filter by source">
-              <option value="">All sources</option>
-              <option value="x.com">𝕏 X.com / StockTwits</option>
-              <option value="stocks">r/stocks</option>
-              <option value="wallstreetbets">r/wallstreetbets</option>
-              <option value="options">r/options</option>
-              <option value="coveredcalls">r/coveredcalls</option>
-              <option value="daytrading">r/daytrading</option>
-              <option value="stockstobuytoday">r/stockstobuytoday</option>
-              <option value="valueinvesting">r/valueinvesting</option>
-              <option value="dividends">r/dividends</option>
-            </select>
-            <button class="icon-btn" onclick="loadStocksPanel(true)" title="Refresh">↺</button>
-            <button class="icon-btn close-btn" onclick="toggleStocksPanel()">✕</button>
+      <!-- Center content -->
+      <main class="center">
+
+        <!-- ── News Widget ─────────────────────────────────────── -->
+        <section class="widget">
+          <div class="tabs news-tabs">
+            <button class="tab active" data-tab="world">WORLD / US</button>
+            <button class="tab" data-tab="tech">TECH / AI</button>
+            <button class="tab" data-tab="sports">SPORTS</button>
           </div>
-        </div>
-
-        <!-- Ticker cloud (top, fixed) -->
-        <div class="stocks-tickers-section">
-          <div class="section-label">HOT TICKERS
-            <button class="tag-clear-btn" id="tickerClearBtn" onclick="clearTickerFilter()" style="display:none">✕ clear</button>
+          <div class="tab-body" id="newsContent">
+            <div class="loading-msg">Loading news…</div>
           </div>
-          <div class="ticker-cloud" id="tickerCloud"></div>
-        </div>
+        </section>
 
-        <!-- Sentiment signals -->
-        <div class="stocks-sentiment-section">
-          <div class="sentiment-grid" id="stocksSentiment"></div>
-        </div>
+        <!-- ── Reddit Widget ───────────────────────────────────── -->
+        <section class="widget">
+          <div class="tabs reddit-tabs">
+            <button class="tab active" data-sub="investing">R/INVESTING</button>
+            <button class="tab" data-sub="stocks">R/STOCKS</button>
+            <button class="tab" data-sub="realestate">R/REALESTATE</button>
+            <button class="tab" data-sub="options">R/OPTIONS</button>
+            <button class="tab" data-sub="wallstreetbets">R/WSB</button>
+            <button class="tab" data-sub="selfhosted">R/SELFHOSTED</button>
+            <button class="tab" data-sub="homelab">R/HOMELAB</button>
+          </div>
+          <div class="tab-body" id="redditContent">
+            <div class="loading-msg">Loading posts…</div>
+          </div>
+        </section>
 
-        <!-- Posts list (scrollable) -->
-        <div class="stocks-posts" id="stocksPostsList">
-          <div class="loading-msg">Loading posts…</div>
-        </div>
-      </aside>
+      </main>
+    </div><!-- /pageHome -->
 
-    </div><!-- /right-dock -->
+    <!-- ══ AI NEWS tab ═════════════════════════════════════════════ -->
+    <div class="page-view" id="pageAi">
+      <div class="panel-page-header">
+        <span class="section-label">TOP AI NEWS</span>
+        <div class="panel-page-actions">
+          <select class="source-dropdown" id="aiSourceDropdown" onchange="filterAIBySource(this.value)" title="Filter by source">
+            <option value="">All sources</option>
+            <option value="x.com">𝕏 X.com / Twitter</option>
+            <option value="news.ycombinator.com">Hacker News</option>
+            <option value="techcrunch.com">TechCrunch</option>
+            <option value="theverge.com">The Verge</option>
+            <option value="venturebeat.com">VentureBeat</option>
+            <option value="huggingface.co">HuggingFace</option>
+            <option value="arstechnica.com">Ars Technica</option>
+          </select>
+          <button class="icon-btn" onclick="loadAINews(true)" title="Refresh">↺</button>
+        </div>
+      </div>
+
+      <!-- Tag cloud -->
+      <div class="ai-tags-section">
+        <div class="section-label">TRENDING TOPICS
+          <button class="tag-clear-btn" id="tagClearBtn" onclick="clearTagFilter()" style="display:none">✕ clear</button>
+        </div>
+        <div class="tag-cloud" id="tagCloud"></div>
+      </div>
+
+      <!-- Articles list -->
+      <div class="ai-articles" id="aiNewsList">
+        <div class="loading-msg">Loading AI articles…</div>
+      </div>
+    </div><!-- /pageAi -->
+
+    <!-- ══ STOCKS tab ══════════════════════════════════════════════ -->
+    <div class="page-view" id="pageStocks">
+      <div class="panel-page-header">
+        <span class="section-label">TRENDING STOCKS</span>
+        <div class="panel-page-actions">
+          <select class="source-dropdown" id="stocksSourceDropdown" onchange="filterStocksBySource(this.value)" title="Filter by source">
+            <option value="">All sources</option>
+            <option value="x.com">𝕏 X.com / StockTwits</option>
+            <option value="stocks">r/stocks</option>
+            <option value="wallstreetbets">r/wallstreetbets</option>
+            <option value="options">r/options</option>
+            <option value="coveredcalls">r/coveredcalls</option>
+            <option value="daytrading">r/daytrading</option>
+            <option value="stockstobuytoday">r/stockstobuytoday</option>
+            <option value="valueinvesting">r/valueinvesting</option>
+            <option value="dividends">r/dividends</option>
+          </select>
+          <button class="icon-btn" onclick="loadStocksPanel(true)" title="Refresh">↺</button>
+        </div>
+      </div>
+
+      <!-- Ticker cloud -->
+      <div class="stocks-tickers-section">
+        <div class="section-label">HOT TICKERS
+          <button class="tag-clear-btn" id="tickerClearBtn" onclick="clearTickerFilter()" style="display:none">✕ clear</button>
+        </div>
+        <div class="ticker-cloud" id="tickerCloud"></div>
+      </div>
+
+      <!-- Sentiment signals -->
+      <div class="stocks-sentiment-section">
+        <div class="sentiment-grid" id="stocksSentiment"></div>
+      </div>
+
+      <!-- Posts list -->
+      <div class="stocks-posts" id="stocksPostsList">
+        <div class="loading-msg">Loading posts…</div>
+      </div>
+    </div><!-- /pageStocks -->
 
   </div><!-- /main-layout -->
 
