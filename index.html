@@ -15,8 +15,8 @@
   <header class="header">
     <div class="header-left">
       <span class="logo">⊞</span>
-      <nav>
-        <a href="#" class="nav-link active" data-page="home"   onclick="switchTab('home');   return false;">Home</a>
+      <nav class="main-nav">
+        <a href="#" class="nav-link active" data-page="home"   onclick="switchTab('home');   return false;">⌂ Home</a>
         <a href="#" class="nav-link"        data-page="ai"     onclick="switchTab('ai');     return false;">◈ AI News</a>
         <a href="#" class="nav-link"        data-page="stocks" onclick="switchTab('stocks'); return false;">▲ Stocks</a>
       </nav>
@@ -177,14 +177,8 @@
       </div>
 
       <div class="panel-body">
-        <!-- Main: tickers + posts -->
+        <!-- Main: posts -->
         <div class="panel-main">
-          <div class="stocks-tickers-section">
-            <div class="section-label">HOT TICKERS
-              <button class="tag-clear-btn" id="tickerClearBtn" onclick="clearTickerFilter()" style="display:none">✕ clear</button>
-            </div>
-            <div class="ticker-cloud" id="tickerCloud"></div>
-          </div>
           <div class="stocks-posts" id="stocksPostsList">
             <div class="loading-msg">Loading posts…</div>
           </div>

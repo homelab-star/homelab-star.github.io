@@ -116,6 +116,7 @@ let aiSourceFilter = '';          // domain string e.g. 'techcrunch.com' or 'x.c
 let stocksCache    = null;
 let stocksXCache   = [];          // StockTwits trending symbols [{symbol, count, title}]
 let stocksNewsFreq = new Map();   // ticker → mention count from news article feeds
+let yfMoversFreq   = new Map();   // ticker → weight from Yahoo Finance top movers
 let activeTicker   = null;
 let stocksSourceFilter = '';      // subreddit string e.g. 'wallstreetbets' or 'x.com'
 let refreshTimer   = null;
@@ -365,17 +366,39 @@ async function bgFetchNews(tab, useR2J = true) {
 const LIST_INITIAL    = 6;   // news tabs + reddit tabs
 const SIDEBAR_INITIAL = 12;  // AI panel + Stocks panel
 
+/** Return a sport emoji for a given article link (used for thumbnail placeholders). */
+function sportIcon(link) {
+  const l = link || '';
+  if (l.includes('espncricinfo.com'))  return '🏏';
+  if (l.includes('espn.com')) {
+    if (l.includes('/nfl/'))    return '🏈';
+    if (l.includes('/nba/'))    return '🏀';
+    if (l.includes('/tennis/')) return '🎾';
+  }
+  return '⚽';
+}
+
 function renderNews(el, items) {
   if (!items.length) {
     el.innerHTML = '<div class="loading-msg error">RSS feeds temporarily unavailable.</div>';
     return;
   }
+  // Determine active news tab to decide if sport placeholder applies
+  const activeNewsTab = document.querySelector('.news-tabs .tab.active')?.dataset.tab || '';
+  const isSportsTab   = activeNewsTab === 'sports';
+
   const rows = items.map((item, i) => {
     // Thumbnail from parseXML or rss2json's 'thumbnail' field
     const thumbUrl = item.thumbnail || item.enclosure?.link || '';
-    const thumbHtml = thumbUrl
-      ? `<div class="news-thumb-wrap"><img class="news-thumb" src="${esc(thumbUrl)}" loading="lazy" alt="" onerror="this.closest('.news-thumb-wrap').style.display='none'"></div>`
-      : '';
+    let thumbHtml;
+    if (thumbUrl) {
+      thumbHtml = `<div class="news-thumb-wrap"><img class="news-thumb" src="${esc(thumbUrl)}" loading="lazy" alt="" onerror="this.closest('.news-thumb-wrap').style.display='none'"></div>`;
+    } else if (isSportsTab) {
+      const icon = sportIcon(item.link || '');
+      thumbHtml = `<div class="news-thumb-wrap news-thumb-placeholder" data-icon="${icon}"><span class="thumb-sport-icon">${icon}</span></div>`;
+    } else {
+      thumbHtml = '';
+    }
     return `<div class="news-item${i >= LIST_INITIAL ? ' list-hidden' : ''}"${i >= LIST_INITIAL ? ' data-extra="true"' : ''}>
       ${thumbHtml}
       <div class="news-body">
@@ -532,6 +555,35 @@ async function fetchStockTwitsTrending() {
       count:  s.watchlist_count || 1,
     }));
   } catch { return []; }
+}
+
+/**
+ * Fetch Yahoo Finance most-active, day gainers, and day losers.
+ * Returns a Map of symbol → weight (most_actives=2, gainers/losers=1).
+ */
+async function fetchYFTopMovers() {
+  const base = 'https://query1.finance.yahoo.com/v1/finance/screener/predefined/saved';
+  const screeners = [
+    { scrId: 'most_actives', weight: 2 },
+    { scrId: 'day_gainers',  weight: 1 },
+    { scrId: 'day_losers',   weight: 1 },
+  ];
+  const result = new Map();
+  try {
+    await Promise.allSettled(screeners.map(async ({ scrId, weight }) => {
+      try {
+        const url = `${base}?scrIds=${scrId}&count=25&fields=symbol`;
+        const res = await fetchWithTimeout(`${MYPROXY}${encodeURIComponent(url)}`, 7000);
+        if (!res.ok) return;
+        const data = await res.json();
+        const quotes = data?.finance?.result?.[0]?.quotes || [];
+        quotes.forEach(q => {
+          if (q.symbol) result.set(q.symbol, (result.get(q.symbol) || 0) + weight);
+        });
+      } catch { /* silent fail for individual screener */ }
+    }));
+  } catch { /* silent fail */ }
+  return result;
 }
 
 /* ════════════════════════════════════════════════════════════════════
@@ -971,12 +1023,11 @@ async function fetchSubredditRaw(sub) {
 
 async function loadStocksPanel(force = false) {
   const listEl  = document.getElementById('stocksPostsList');
-  const cloudEl = document.getElementById('tickerCloud');
-  if (!listEl || !cloudEl) return;
+  if (!listEl) return;
 
   // ① Memory hit
   if (stocksCache && !force) {
-    renderAllStocks(cloudEl, listEl, stocksCache);
+    renderAllStocks(listEl, stocksCache);
     return;
   }
 
@@ -986,7 +1037,7 @@ async function loadStocksPanel(force = false) {
     if (stored) {
       stocksCache  = stored;
       stocksXCache = lsGet('stocks_x') || [];
-      renderAllStocks(cloudEl, listEl, stocksCache);
+      renderAllStocks(listEl, stocksCache);
       loadStocksPanel(true);   // silent background refresh
       return;
     }
@@ -999,22 +1050,25 @@ async function loadStocksPanel(force = false) {
   // Only show spinner if panel is open and nothing cached yet
   if (!stocksCache && stocksPanelOpen()) {
     listEl.innerHTML = `<div class="loading-msg">Fetching ${STOCKS_SUBS.length} subreddits…</div>`;
-    cloudEl.innerHTML = '';
     const sentEl = document.getElementById('stocksSentiment');
     if (sentEl) sentEl.innerHTML = '';
   }
 
   try {
-    // Fetch Reddit subs + StockTwits + stock news articles all in parallel
-    const [redditResults, xResult, newsItems] = await Promise.allSettled([
+    // Fetch Reddit subs + StockTwits + stock news articles + YF top movers all in parallel
+    const [redditResults, xResult, newsItems, yfResult] = await Promise.allSettled([
       Promise.allSettled(STOCKS_SUBS.map(sub => fetchSubredditRaw(sub))),
       fetchStockTwitsTrending(),
       fetchRSSMany(STOCKS_NEWS_FEEDS, 20, false),
+      fetchYFTopMovers(),
     ]);
     const all = (redditResults.status === 'fulfilled' ? redditResults.value : [])
       .flatMap(r => r.status === 'fulfilled' ? r.value : []);
     stocksXCache = xResult.status === 'fulfilled' ? xResult.value : [];
     lsSet('stocks_x', stocksXCache);
+
+    // Store YF top movers signal
+    yfMoversFreq = yfResult.status === 'fulfilled' ? yfResult.value : new Map();
 
     // Build news ticker frequency map from article titles
     const articles = newsItems.status === 'fulfilled' ? newsItems.value : [];
@@ -1046,16 +1100,15 @@ async function loadStocksPanel(force = false) {
   }
 
   // Only update DOM if panel is open
-  if (stocksPanelOpen()) renderAllStocks(cloudEl, listEl, stocksCache);
+  if (stocksPanelOpen()) renderAllStocks(listEl, stocksCache);
 }
 
-/** Render tickers + sentiment + posts in one shot */
-function renderAllStocks(cloudEl, listEl, posts) {
+/** Render sentiment + posts in one shot */
+function renderAllStocks(listEl, posts) {
   const upEl   = document.getElementById('stocksSentimentUp');
   const downEl = document.getElementById('stocksSentimentDown');
 
   if (stocksSourceFilter === 'x.com') {
-    renderStockTickersX(cloudEl, stocksXCache);
     if (upEl)   upEl.innerHTML   = '';
     if (downEl) downEl.innerHTML = '';
     listEl.innerHTML = '<div class="loading-msg">X.com / StockTwits shows trending tickers only.<br>Select a subreddit for post details.</div>';
@@ -1067,8 +1120,6 @@ function renderAllStocks(cloudEl, listEl, posts) {
     : posts;
 
   const annotated = filtered.map(p => p._tickers ? p : { ...p, _tickers: extractTickers(p.title) });
-  renderStockTickers(cloudEl, annotated, stocksSourceFilter ? [] : stocksXCache,
-                     stocksSourceFilter ? new Map() : stocksNewsFreq);
 
   const sentResult = renderSentiment(upEl, downEl, annotated);
   renderStockPosts(listEl, annotated, activeTicker);
@@ -1088,12 +1139,9 @@ function renderAllStocks(cloudEl, listEl, posts) {
 function filterStocksBySource(src) {
   stocksSourceFilter = src;
   activeTicker = null; // reset ticker filter when source changes
-  const clearBtn = document.getElementById('tickerClearBtn');
-  if (clearBtn) clearBtn.style.display = 'none';
   if (!stocksCache) return;
-  const cloudEl = document.getElementById('tickerCloud');
   const listEl  = document.getElementById('stocksPostsList');
-  if (cloudEl && listEl) renderAllStocks(cloudEl, listEl, stocksCache);
+  if (listEl) renderAllStocks(listEl, stocksCache);
 }
 
 function renderStockTickers(el, posts, xSymbols = [], newsFreq = new Map()) {
@@ -1108,6 +1156,8 @@ function renderStockTickers(el, posts, xSymbols = [], newsFreq = new Map()) {
   });
   // News articles: 1× weight (additional signal)
   newsFreq.forEach((c, t) => counts.set(t, (counts.get(t) || 0) + c));
+  // YF top movers: add their weights directly (most_actives=2, gainers/losers=1)
+  yfMoversFreq.forEach((w, t) => counts.set(t, (counts.get(t) || 0) + w));
 
   // Require ≥2 posts, sort by count, top 35
   const sorted = [...counts.entries()]
