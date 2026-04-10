@@ -884,9 +884,22 @@ html[data-theme="light"] .tag-entity.selected { color: var(--text); border-color
 
   #pageHome { flex-direction: column; }
 
-  /* AI / Stocks pages get a fixed viewport height so internal areas scroll */
+  /* AI / Stocks pages: full viewport height with internal scroll */
   #pageAi,
-  #pageStocks { height: calc(100vh - var(--header-h) - 49px); }
+  #pageStocks { height: calc(100vh - var(--header-h) - var(--fact-h)); }
+
+  /* Tighter center padding on tablets/phones */
+  .center { padding: 12px 14px; }
+
+  /* Tabs scroll horizontally instead of wrapping — essential for 7-tab reddit row */
+  .tabs {
+    overflow-x: auto;
+    flex-wrap: nowrap;
+    -webkit-overflow-scrolling: touch;
+    scrollbar-width: none;          /* Firefox */
+  }
+  .tabs::-webkit-scrollbar { display: none; }  /* Chrome/Safari */
+  .tab { flex-shrink: 0; }
 
   /* On mobile the sidebar stacks below main content */
   .panel-body { flex-direction: column; }
@@ -894,45 +907,44 @@ html[data-theme="light"] .tag-entity.selected { color: var(--text); border-color
     width: 100%;
     border-left: none;
     border-top: 1px solid var(--border);
-    max-height: 40vh;
+    max-height: 38vh;
   }
-  .sidebar-half { max-height: 25vh; }
+  .sidebar-half { max-height: 20vh; }
 
-  /* Sidebar becomes a collapsible bar on mobile */
+  /* Bookmarks sidebar: full-width collapsible strip */
   .sidebar {
     width: 100%;
     height: auto;
     border-right: none;
     border-bottom: 1px solid var(--border);
     padding: 10px 14px 12px;
+    box-shadow: none;
   }
 
   /* Show the collapse toggle on mobile */
   .sidebar-toggle { display: flex; align-items: center; justify-content: center; }
 
   /* Collapsed: zero-height with smooth animation */
-  .sidebar-content {
-    max-height: 400px; /* tall enough to fit all links when open */
-  }
+  .sidebar-content { max-height: 400px; }
   .sidebar-content.collapsed { max-height: 0 !important; }
 
-  /* Bookmark links render as horizontal pills */
+  /* Bookmark links as horizontal scrolling pills */
   .bookmark-list {
     flex-direction: row;
     flex-wrap: wrap;
     gap: 6px 10px;
   }
-
   .bookmark-list a {
     display: inline-flex;
     align-items: center;
-    padding: 3px 10px;
+    padding: 4px 12px;
     border: 1px solid var(--border2);
     border-radius: 20px;
-    font-size: .78rem;
+    font-size: .82rem;
     white-space: nowrap;
     background: var(--bg3);
     transition: color .15s, border-color .15s, background .15s;
+    min-height: 32px;              /* touch-friendly height */
   }
   .bookmark-list a:hover {
     border-color: var(--accent);
@@ -940,26 +952,61 @@ html[data-theme="light"] .tag-entity.selected { color: var(--text); border-color
     background: var(--bg2);
   }
 
+  /* Nav links: bigger tap targets */
+  nav { gap: 2px; }
+  .nav-link { padding: 6px 8px; font-size: .78rem; letter-spacing: .04em; }
+
+  /* Panel page header: slightly tighter */
+  .panel-page-header { padding: 11px 16px 10px; }
+
   /* Group titles stay readable */
-  .bookmark-group-title {
-    margin: 10px 0 4px;
-    padding-top: 8px;
-  }
+  .bookmark-group-title { margin: 10px 0 4px; padding-top: 8px; }
 }
 
 @media (max-width: 600px) {
+  /* Tabs: smaller labels, no gap */
   .tabs { gap: 0; }
-  .tab { padding: 7px 8px; font-size: .65rem; }
+  .tab { padding: 8px 10px; font-size: .68rem; min-height: 38px; }
 
-  /* Hide the refresh timer text on very small screens */
-  .refresh-indicator { display: none; }
-
-  /* Tighter header */
+  /* Header: tighter */
   .header { padding: 0 10px; }
-  .header-right { gap: 7px; }
-}
+  .header-right { gap: 6px; }
 
-@media (max-width: 600px) {
-  .tabs { gap: 0; }
-  .tab { padding: 7px 8px; font-size: .65rem; }
+  /* Hide timer and A−/A+ buttons on small phones — save header space */
+  .refresh-indicator { display: none; }
+  .font-ctrl { display: none; }
+
+  /* Compact fact bar: hide label, single line */
+  .fact-bar {
+    padding: 8px 14px;
+    flex-wrap: nowrap;
+    align-items: center;
+    gap: 8px;
+  }
+  .fact-bar .section-label { display: none; }
+  .fact-text { font-size: .86rem; }
+
+  /* Smaller thumbnails */
+  .news-thumb-wrap { width: 64px; height: 50px; }
+
+  /* Panel header: compact on phones */
+  .panel-page-header { padding: 9px 14px; }
+  .source-dropdown { max-width: 120px; font-size: .7rem; padding: 3px 5px; }
+
+  /* News/reddit items: tighter padding */
+  .news-item { padding: 8px 0; }
+  .reddit-item { padding: 7px 0; }
+
+  /* Show more button: full width, easy to tap */
+  .show-more-btn { padding: 10px 0; font-size: .78rem; }
+
+  /* Stock posts */
+  .stocks-posts { padding: 8px 14px; }
+  .stock-post-item { padding: 8px 0; }
+
+  /* AI articles */
+  .ai-articles { padding: 8px 14px; }
+
+  /* Ticker pills: slightly larger touch area */
+  .ticker-pill { padding: 5px 12px; }
 }
