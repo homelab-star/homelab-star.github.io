@@ -112,7 +112,6 @@ const stocksPanelOpen = () => activeTab === 'stocks';
    INIT
 ════════════════════════════════════════════════════════════════════ */
 document.addEventListener('DOMContentLoaded', () => {
-  initTheme();
   initFontSize();
   initSidebar();
   initTab();
@@ -157,7 +156,7 @@ function refreshAll() {
 /* ── Clear all data cache + force full background refresh ─────────── */
 function clearCache() {
   // Wipe every dash_ data key; preserve user settings (theme, fontSize, sidebarCollapsed)
-  const KEEP = new Set(['dash_theme', 'dash_fontSize', 'dash_sidebarCollapsed']);
+  const KEEP = new Set(['dash_fontSize', 'dash_sidebarCollapsed']);
   Object.keys(localStorage)
     .filter(k => k.startsWith(LS_PREFIX) && !KEEP.has(k))
     .forEach(k => localStorage.removeItem(k));
@@ -1477,31 +1476,6 @@ function esc(str) {
     .replace(/"/g, '&quot;');
 }
 
-/* ════════════════════════════════════════════════════════════════════
-   THEME
-════════════════════════════════════════════════════════════════════ */
-function initTheme() {
-  const saved = localStorage.getItem('dash_theme') || 'dark';
-  applyTheme(saved, false);  // no transition on initial load
-}
-
-function toggleTheme() {
-  const current = document.documentElement.dataset.theme || 'dark';
-  applyTheme(current === 'dark' ? 'light' : 'dark', true);
-}
-
-function applyTheme(theme, animate = true) {
-  const html = document.documentElement;
-  if (animate) {
-    html.classList.add('theme-switching');
-    setTimeout(() => html.classList.remove('theme-switching'), 350);
-  }
-  html.dataset.theme = theme;
-  localStorage.setItem('dash_theme', theme);
-  const btn = document.getElementById('themeBtn');
-  if (btn) btn.title = theme === 'dark' ? 'Switch to light mode' : 'Switch to dark mode';
-  btn.textContent = theme === 'dark' ? '☀' : '☾';
-}
 
 /* ════════════════════════════════════════════════════════════════════
    FONT SIZE
