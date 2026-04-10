@@ -32,30 +32,46 @@ function lsSet(key, data) {
 
 /* ── Feed definitions ─────────────────────────────────────────────── */
 const FEEDS = {
+  // ── US News ────────────────────────────────────────────────────────
+  us: [
+    'https://feeds.apnews.com/rss/apf-usnews',                // AP US
+    'https://feeds.npr.org/1001/rss.xml',                     // NPR
+    'https://rss.cnn.com/rss/cnn_topstories.rss',             // CNN
+    'https://www.cbsnews.com/latest/rss/main',                 // CBS News
+  ],
+  // ── World News ─────────────────────────────────────────────────────
   world: [
-    'https://feeds.apnews.com/rss/apf-topnews',
-    'https://feeds.bbci.co.uk/news/rss.xml',
-    'https://feeds.npr.org/1001/rss.xml',
+    'https://feeds.bbci.co.uk/news/world/rss.xml',            // BBC World
+    'https://feeds.apnews.com/rss/apf-intlnews',              // AP International
+    'https://www.aljazeera.com/xml/rss/all.xml',              // Al Jazeera
   ],
-  tech: [
-    'https://techcrunch.com/feed/',
-    'https://www.theverge.com/rss/index.xml',
-    'https://feeds.arstechnica.com/arstechnica/index',
-  ],
+  // ── Sports (US + Cricket) ──────────────────────────────────────────
   sports: [
-    'https://feeds.bbci.co.uk/sport/rss.xml',
-    'https://www.espn.com/espn/rss/news',
+    'https://www.espn.com/espn/rss/nfl/news',                 // ESPN NFL
+    'https://www.espn.com/espn/rss/nba/news',                 // ESPN NBA
+    'https://www.espn.com/espn/rss/tennis/news',              // ESPN Tennis
+    'https://www.espncricinfo.com/rss/content/story/feeds/0.xml', // ESPNcricinfo
   ],
-  // AI panel — mix of dedicated AI feeds + reliable general-tech feeds (filtered by AI keywords)
+  // ── AI panel — dedicated AI feeds + HN filtered by AI keywords ─────
   ai: [
-    'https://hnrss.org/frontpage',                              // Hacker News — rich AI coverage
-    'https://techcrunch.com/feed/',                            // TechCrunch main (proven reliable)
-    'https://www.theverge.com/rss/index.xml',                  // The Verge main
-    'https://feeds.feedburner.com/venturebeat/SZYF',           // VentureBeat via Feedburner
-    'https://huggingface.co/blog/feed.xml',                    // HuggingFace blog
-    'https://feeds.arstechnica.com/arstechnica/index',         // Ars Technica (HTTPS)
+    'https://hnrss.org/frontpage',                            // Hacker News (AI-filtered)
+    'https://www.theverge.com/rss/ai-artificial-intelligence/index.xml', // The Verge AI
+    'https://techcrunch.com/tag/artificial-intelligence/feed/',          // TechCrunch AI
+    'https://feeds.feedburner.com/venturebeat/SZYF',          // VentureBeat
+    'https://www.technologyreview.com/feed/',                  // MIT Tech Review (AI-filtered)
+    'https://huggingface.co/blog/feed.xml',                   // HuggingFace
+    'https://openai.com/news/rss/',                           // OpenAI blog
+    'https://feeds.arstechnica.com/arstechnica/index',        // Ars Technica (AI-filtered)
   ],
 };
+
+// ── Stock news article feeds (for ticker trending signal) ──────────
+const STOCKS_NEWS_FEEDS = [
+  'https://www.cnbc.com/id/20910258/device/rss/rss.html',    // CNBC Markets
+  'https://feeds.marketwatch.com/marketwatch/topstories/',    // MarketWatch
+  'https://finance.yahoo.com/news/rssindex',                  // Yahoo Finance news
+  'https://www.benzinga.com/feed/',                           // Benzinga
+];
 
 const REDDIT_SUBS = ['investing','stocks','realestate','options','wallstreetbets','selfhosted','homelab'];
 
@@ -78,7 +94,7 @@ const FALLBACK_FACTS = [
 ];
 
 /* ── All tab keys (used for prefetch + refresh) ───────────────────── */
-const ALL_NEWS_TABS   = ['world', 'tech', 'sports'];
+const ALL_NEWS_TABS   = ['us', 'world', 'sports'];
 const ALL_REDDIT_SUBS = ['investing', 'stocks', 'realestate', 'options', 'wallstreetbets', 'selfhosted', 'homelab'];
 
 /* ── X.com / Nitter config ────────────────────────────────────────── */
@@ -99,6 +115,7 @@ let activeTag      = null;
 let aiSourceFilter = '';          // domain string e.g. 'techcrunch.com' or 'x.com'
 let stocksCache    = null;
 let stocksXCache   = [];          // StockTwits trending symbols [{symbol, count, title}]
+let stocksNewsFreq = new Map();   // ticker → mention count from news article feeds
 let activeTicker   = null;
 let stocksSourceFilter = '';      // subreddit string e.g. 'wallstreetbets' or 'x.com'
 let refreshTimer   = null;
@@ -116,7 +133,7 @@ document.addEventListener('DOMContentLoaded', () => {
   initSidebar();
   initTab();
   loadFact();
-  initTabs('.news-tabs',   'tab',  loadNews,   'world');
+  initTabs('.news-tabs',   'tab',  loadNews,   'us');
   initTabs('.reddit-tabs', 'tab',  loadReddit, 'investing');
   startCountdown();
   setInterval(refreshAll, REFRESH_MS);
@@ -214,7 +231,7 @@ let aiFetching     = false;
 let stocksFetching = false;
 
 function prefetchAll() {
-  const activeNews   = document.querySelector('.news-tabs .tab.active')?.dataset.tab   || 'world';
+  const activeNews   = document.querySelector('.news-tabs .tab.active')?.dataset.tab   || 'us';
   const activeReddit = document.querySelector('.reddit-tabs .tab.active')?.dataset.sub || 'investing';
 
   // News: from localStorage instantly; network only if no cache (staggered lightly)
@@ -988,15 +1005,25 @@ async function loadStocksPanel(force = false) {
   }
 
   try {
-    // Fetch Reddit subs + StockTwits trending in parallel
-    const [redditResults, xResult] = await Promise.allSettled([
+    // Fetch Reddit subs + StockTwits + stock news articles all in parallel
+    const [redditResults, xResult, newsItems] = await Promise.allSettled([
       Promise.allSettled(STOCKS_SUBS.map(sub => fetchSubredditRaw(sub))),
       fetchStockTwitsTrending(),
+      fetchRSSMany(STOCKS_NEWS_FEEDS, 20, false),
     ]);
     const all = (redditResults.status === 'fulfilled' ? redditResults.value : [])
       .flatMap(r => r.status === 'fulfilled' ? r.value : []);
     stocksXCache = xResult.status === 'fulfilled' ? xResult.value : [];
     lsSet('stocks_x', stocksXCache);
+
+    // Build news ticker frequency map from article titles
+    const articles = newsItems.status === 'fulfilled' ? newsItems.value : [];
+    stocksNewsFreq = new Map();
+    articles.forEach(item => {
+      extractTickers(item.title || '').forEach(t =>
+        stocksNewsFreq.set(t, (stocksNewsFreq.get(t) || 0) + 1)
+      );
+    });
 
     if (all.length) {
       const seen = new Set();
@@ -1040,7 +1067,8 @@ function renderAllStocks(cloudEl, listEl, posts) {
     : posts;
 
   const annotated = filtered.map(p => p._tickers ? p : { ...p, _tickers: extractTickers(p.title) });
-  renderStockTickers(cloudEl, annotated, stocksSourceFilter ? [] : stocksXCache);
+  renderStockTickers(cloudEl, annotated, stocksSourceFilter ? [] : stocksXCache,
+                     stocksSourceFilter ? new Map() : stocksNewsFreq);
 
   const sentResult = renderSentiment(upEl, downEl, annotated);
   renderStockPosts(listEl, annotated, activeTicker);
@@ -1068,16 +1096,18 @@ function filterStocksBySource(src) {
   if (cloudEl && listEl) renderAllStocks(cloudEl, listEl, stocksCache);
 }
 
-function renderStockTickers(el, posts, xSymbols = []) {
+function renderStockTickers(el, posts, xSymbols = [], newsFreq = new Map()) {
   if (!posts.length && !xSymbols.length) return;
 
-  // Count weighted ticker mentions from Reddit posts
+  // Reddit posts: 2× weight (user-confirmed heavier signal)
   const counts = new Map();
   posts.forEach(p => {
     (p._tickers || extractTickers(p.title)).forEach(t => {
-      counts.set(t, (counts.get(t) || 0) + 1);
+      counts.set(t, (counts.get(t) || 0) + 2);
     });
   });
+  // News articles: 1× weight (additional signal)
+  newsFreq.forEach((c, t) => counts.set(t, (counts.get(t) || 0) + c));
 
   // Require ≥2 posts, sort by count, top 35
   const sorted = [...counts.entries()]

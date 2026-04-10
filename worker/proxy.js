@@ -23,30 +23,44 @@ const ALLOWED_ORIGINS = [
 
 // Only proxy these upstream hosts — prevents use as open proxy
 const ALLOWED_HOSTS = [
-  // RSS news feeds
+  // ── US News ──────────────────────────────────────────────────────
   'feeds.apnews.com',
-  'feeds.bbci.co.uk',
   'feeds.npr.org',
+  'rss.cnn.com',
+  'www.cbsnews.com',
+  // ── World News ───────────────────────────────────────────────────
+  'feeds.bbci.co.uk',
+  'www.aljazeera.com',
+  // ── Sports ───────────────────────────────────────────────────────
+  'www.espn.com',
+  'www.espncricinfo.com',
+  // ── AI News ──────────────────────────────────────────────────────
+  'hnrss.org',
   'techcrunch.com',
   'www.theverge.com',
-  'feeds.arstechnica.com',
-  'www.espn.com',
-  'hnrss.org',
   'feeds.feedburner.com',
+  'feeds.arstechnica.com',
   'huggingface.co',
-  // Reddit (JSON API)
+  'www.technologyreview.com',
+  'openai.com',
+  // ── Stocks News (ticker signal) ──────────────────────────────────
+  'www.cnbc.com',
+  'feeds.marketwatch.com',
+  'finance.yahoo.com',
+  'www.benzinga.com',
+  // ── Reddit (JSON API) ────────────────────────────────────────────
   'www.reddit.com',
   'old.reddit.com',
-  // X.com via Nitter (open-source Twitter frontend with RSS)
+  // ── X.com via Nitter ─────────────────────────────────────────────
   'nitter.poast.org',
   'nitter.privacydev.net',
   'nitter.catsarch.com',
-  // StockTwits public API
+  // ── StockTwits public API ─────────────────────────────────────────
   'api.stocktwits.com',
-  // Yahoo Finance (market prices for trending tickers)
+  // ── Yahoo Finance (market prices) ────────────────────────────────
   'query1.finance.yahoo.com',
   'query2.finance.yahoo.com',
-  // Random facts API
+  // ── Random facts ─────────────────────────────────────────────────
   'uselessfacts.jsph.pl',
 ];
 
