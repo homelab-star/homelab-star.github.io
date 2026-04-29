@@ -134,7 +134,6 @@ document.addEventListener('DOMContentLoaded', () => {
   initFontSize();
   initSidebar();
   initTab();
-  loadFact();
   initTabs('.news-tabs',   'tab',  loadNews,   'us');
   initTabs('.reddit-tabs', 'tab',  loadReddit, 'investing');
   startCountdown();
@@ -157,7 +156,6 @@ function refreshAll() {
   const stDd = document.getElementById('stocksSourceDropdown');
   if (aiDd) aiDd.value = '';
   if (stDd) stDd.value = '';
-  loadFact();
 
   // Active visible content: re-render from localStorage, bg-fetch fresh data
   const nTab = document.querySelector('.news-tabs .tab.active');
@@ -356,17 +354,50 @@ async function loadNews(tab, silent = false) {
 async function bgFetchNews(tab, useR2J = true) {
   const items = await fetchRSSMany(FEEDS[tab] || [], 20, useR2J);
   if (!items.length) return false;
+
   const MAX_AGE = 7 * 24 * 60 * 60 * 1000;
-  const fresh = items.filter(i => {
-    if (!i.pubDate) return true;
-    const age = Date.now() - new Date(i.pubDate).getTime();
-    return isNaN(age) || age < MAX_AGE;
-  }).slice(0, 18);
-  if (!fresh.length) return false;
-  cache.news[tab] = fresh;
-  lsSet('news_' + tab, fresh);
+  const MIN_PER = 8;
+
+  // Bucket by source feed
+  const byFeed = new Map();
+  for (const item of items) {
+    const k = item._feed || 'other';
+    if (!byFeed.has(k)) byFeed.set(k, []);
+    byFeed.get(k).push(item);
+  }
+
+  // Guarantee MIN_PER from each feed; if not enough fresh items, fall back to older ones
+  const guaranteed = [], overflow = [];
+  for (const feedItems of byFeed.values()) {
+    const isRecent = i => {
+      if (!i.pubDate) return true;
+      const age = Date.now() - new Date(i.pubDate).getTime();
+      return isNaN(age) || age < MAX_AGE;
+    };
+    const fresh = feedItems.filter(isRecent);
+    const pool  = fresh.length >= MIN_PER ? fresh : feedItems; // use older if not enough fresh
+    guaranteed.push(...pool.slice(0, MIN_PER));
+    overflow.push(...pool.slice(MIN_PER));
+  }
+
+  // Sort combined set newest-first, dedup, cap
+  const seen = new Set();
+  const sorted = [...guaranteed, ...overflow].sort((a, b) => {
+    const da = new Date(a.pubDate).getTime(), db = new Date(b.pubDate).getTime();
+    if (isNaN(da) && isNaN(db)) return 0;
+    if (isNaN(da)) return 1;
+    if (isNaN(db)) return -1;
+    return db - da;
+  }).filter(i => {
+    if (!i.title || seen.has(i.title)) return false;
+    seen.add(i.title); return true;
+  }).slice(0, 60);
+
+  if (!sorted.length) return false;
+  cache.news[tab] = sorted;
+  lsSet('news_' + tab, sorted);
   const active = document.querySelector('.news-tabs .tab.active');
-  if (active?.dataset.tab === tab) renderNews(document.getElementById('newsContent'), fresh);
+  if (active?.dataset.tab === tab) renderNews(document.getElementById('newsContent'), sorted);
   return true;
 }
 
@@ -1497,10 +1528,30 @@ function extractThumbnail(n) {
     if (m?.[1]) return m[1];
   }
 
-  // 6. Wildcard: any element with a url attribute pointing to an image
+  // 6. Local-name scan — catches namespace-prefixed elements that NS lookups miss
+  //    (e.g. ESPN declares xmlns:media without trailing slash and DOMParser maps it differently)
+  for (const el of n.getElementsByTagName('*')) {
+    const ln = el.localName;
+    if (ln === 'thumbnail' && el.hasAttribute('url')) return el.getAttribute('url');
+    if (ln === 'content' && el.hasAttribute('url')) {
+      const url    = el.getAttribute('url') || '';
+      const medium = el.getAttribute('medium') || '';
+      const type   = el.getAttribute('type')   || '';
+      if (medium === 'image' || type.startsWith('image/')
+        || /\.(jpg|jpeg|png|webp|gif)(\?|$)/i.test(url)
+        || /espncdn\.com/i.test(url)
+        || /format=jpg/i.test(url)) return url;
+    }
+  }
+
+  // 7. Wildcard: any [url] attribute containing an image signal
   for (const el of n.querySelectorAll('[url]')) {
     const url = el.getAttribute('url') || '';
-    if (/\.(jpg|jpeg|png|webp|gif)(\?|$)/i.test(url) || /\/images?\//i.test(url) || /\/thumb/i.test(url)) {
+    if (/\.(jpg|jpeg|png|webp|gif)(\?|$)/i.test(url)
+      || /\/images?\//i.test(url)
+      || /\/thumb/i.test(url)
+      || /espncdn\.com/i.test(url)
+      || /format=jpg/i.test(url)) {
       return url;
     }
   }
@@ -1550,15 +1601,17 @@ async function fetchTickerPrices(symbols) {
  * rate limits when the user isn't waiting on the result).
  */
 async function fetchRSSMany(urls, countPerFeed = 20, useR2J = true) {
-  const results = await Promise.allSettled(urls.map(url => fetchRSS(url, countPerFeed, useR2J)));
+  const results = await Promise.allSettled(
+    urls.map(url => fetchRSS(url, countPerFeed, useR2J).then(items => items.map(i => ({ ...i, _feed: url }))))
+  );
   const all = results.flatMap(r => r.status === 'fulfilled' ? r.value : []);
   all.sort((a, b) => {
     const da = new Date(a.pubDate).getTime();
     const db = new Date(b.pubDate).getTime();
     if (isNaN(da) && isNaN(db)) return 0;
-    if (isNaN(da)) return 1;   // push unparseable dates to end
+    if (isNaN(da)) return 1;
     if (isNaN(db)) return -1;
-    return db - da;            // newest first
+    return db - da;
   });
   const seen = new Set();
   return all.filter(item => {
