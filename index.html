@@ -87,32 +87,44 @@
       <main class="center">
 
         <!-- ── News Widget ─────────────────────────────────────── -->
-        <section class="widget">
-          <div class="tabs news-tabs">
-            <button class="tab active" data-tab="us">US</button>
-            <button class="tab" data-tab="world">WORLD</button>
-            <button class="tab" data-tab="sports">SPORTS</button>
-          </div>
-          <div class="tab-body" id="newsContent">
-            <div class="loading-msg">Loading news…</div>
-          </div>
-        </section>
+        <div class="card">
+          <section class="widget">
+            <div class="tabs news-tabs">
+              <button class="tab active" data-tab="us">US</button>
+              <button class="tab" data-tab="world">WORLD</button>
+              <button class="tab" data-tab="sports">SPORTS</button>
+              <div class="card-actions">
+                <button class="section-maximize" onclick="toggleMaximize(this)" title="Maximize">⤢</button>
+                <button class="section-toggle" onclick="toggleSection(this)" title="Collapse">▾</button>
+              </div>
+            </div>
+            <div class="tab-body" id="newsContent">
+              <div class="loading-msg">Loading news…</div>
+            </div>
+          </section>
+        </div>
 
         <!-- ── Reddit Widget ───────────────────────────────────── -->
-        <section class="widget">
-          <div class="tabs reddit-tabs">
-            <button class="tab active" data-sub="investing">R/INVESTING</button>
-            <button class="tab" data-sub="stocks">R/STOCKS</button>
-            <button class="tab" data-sub="realestate">R/REALESTATE</button>
-            <button class="tab" data-sub="options">R/OPTIONS</button>
-            <button class="tab" data-sub="wallstreetbets">R/WSB</button>
-            <button class="tab" data-sub="selfhosted">R/SELFHOSTED</button>
-            <button class="tab" data-sub="homelab">R/HOMELAB</button>
-          </div>
-          <div class="tab-body" id="redditContent">
-            <div class="loading-msg">Loading posts…</div>
-          </div>
-        </section>
+        <div class="card">
+          <section class="widget">
+            <div class="tabs reddit-tabs">
+              <button class="tab active" data-sub="investing">R/INVESTING</button>
+              <button class="tab" data-sub="stocks">R/STOCKS</button>
+              <button class="tab" data-sub="realestate">R/REALESTATE</button>
+              <button class="tab" data-sub="options">R/OPTIONS</button>
+              <button class="tab" data-sub="wallstreetbets">R/WSB</button>
+              <button class="tab" data-sub="selfhosted">R/SELFHOSTED</button>
+              <button class="tab" data-sub="homelab">R/HOMELAB</button>
+              <div class="card-actions">
+                <button class="section-maximize" onclick="toggleMaximize(this)" title="Maximize">⤢</button>
+                <button class="section-toggle" onclick="toggleSection(this)" title="Collapse">▾</button>
+              </div>
+            </div>
+            <div class="tab-body" id="redditContent">
+              <div class="loading-msg">Loading posts…</div>
+            </div>
+          </section>
+        </div>
 
       </main>
     </div><!-- /pageHome -->

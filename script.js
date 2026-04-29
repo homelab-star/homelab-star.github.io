@@ -36,8 +36,9 @@ const FEEDS = {
   us: [
     'https://feeds.apnews.com/rss/apf-usnews',                // AP US
     'https://feeds.npr.org/1001/rss.xml',                     // NPR
-    'https://rss.cnn.com/rss/cnn_topstories.rss',             // CNN
+    'https://feeds.abcnews.com/abcnews/topstories',           // ABC News (CNN feed was frozen since 2022)
     'https://www.cbsnews.com/latest/rss/main',                 // CBS News
+    'https://feeds.nbcnews.com/nbcnews/public/news',          // NBC News
   ],
   // ── World News ─────────────────────────────────────────────────────
   world: [
@@ -355,7 +356,13 @@ async function loadNews(tab, silent = false) {
 async function bgFetchNews(tab, useR2J = true) {
   const items = await fetchRSSMany(FEEDS[tab] || [], 20, useR2J);
   if (!items.length) return false;
-  const fresh = items.slice(0, 18);
+  const MAX_AGE = 7 * 24 * 60 * 60 * 1000;
+  const fresh = items.filter(i => {
+    if (!i.pubDate) return true;
+    const age = Date.now() - new Date(i.pubDate).getTime();
+    return isNaN(age) || age < MAX_AGE;
+  }).slice(0, 18);
+  if (!fresh.length) return false;
   cache.news[tab] = fresh;
   lsSet('news_' + tab, fresh);
   const active = document.querySelector('.news-tabs .tab.active');
@@ -383,35 +390,31 @@ function renderNews(el, items) {
     el.innerHTML = '<div class="loading-msg error">RSS feeds temporarily unavailable.</div>';
     return;
   }
-  // Determine active news tab to decide if sport placeholder applies
   const activeNewsTab = document.querySelector('.news-tabs .tab.active')?.dataset.tab || '';
   const isSportsTab   = activeNewsTab === 'sports';
 
-  const rows = items.map((item, i) => {
-    // Thumbnail from parseXML or rss2json's 'thumbnail' field
+  const cards = items.map(item => {
     const thumbUrl = item.thumbnail || item.enclosure?.link || '';
-    let thumbHtml;
+    let thumbContent;
     if (thumbUrl) {
-      thumbHtml = `<div class="news-thumb-wrap"><img class="news-thumb" src="${esc(thumbUrl)}" loading="lazy" alt="" onerror="this.closest('.news-thumb-wrap').style.display='none'"></div>`;
+      thumbContent = `<img class="news-card-thumb" src="${esc(thumbUrl)}" loading="lazy" alt="" onerror="this.style.display='none'">`;
     } else if (isSportsTab) {
       const icon = sportIcon(item.link || '');
-      thumbHtml = `<div class="news-thumb-wrap news-thumb-placeholder" data-icon="${icon}"><span class="thumb-sport-icon">${icon}</span></div>`;
+      thumbContent = `<span class="news-card-thumb-icon">${icon}</span>`;
     } else {
-      thumbHtml = '';
+      const src = domain(item.link).replace(/^www\./, '').split('.')[0].toUpperCase().slice(0, 4);
+      thumbContent = `<span class="news-card-thumb-src">${src}</span>`;
     }
-    return `<div class="news-item${i >= LIST_INITIAL ? ' list-hidden' : ''}"${i >= LIST_INITIAL ? ' data-extra="true"' : ''}>
-      ${thumbHtml}
-      <div class="news-body">
-        <a class="news-title" href="${esc(item.link)}" target="_blank" rel="noreferrer">${esc(item.title)}</a>
-        <div class="news-meta">${timeAgo(item.pubDate)} · ${domain(item.link)}</div>
+    return `<div class="news-card">
+      <div class="news-card-thumb-wrap">${thumbContent}</div>
+      <div class="news-card-body">
+        <a class="news-card-title" href="${esc(item.link)}" target="_blank" rel="noreferrer">${esc(item.title)}</a>
+        <div class="news-card-meta">${timeAgo(item.pubDate)} · ${domain(item.link)}</div>
       </div>
     </div>`;
   }).join('');
-  const extra = items.length - LIST_INITIAL;
-  const btn   = extra > 0
-    ? `<button class="show-more-btn" onclick="toggleListExpand(this)">SHOW MORE (${extra} more) ↓</button>`
-    : '';
-  el.innerHTML = rows + btn;
+
+  el.innerHTML = `<div class="news-grid">${cards}</div>`;
 }
 
 /* ════════════════════════════════════════════════════════════════════
@@ -478,10 +481,10 @@ function renderReddit(el, posts) {
     el.innerHTML = '<div class="loading-msg">No posts found.</div>';
     return;
   }
-  const rows = posts.map((p, i) => {
+  const rows = posts.map(p => {
     const isLink = !p.is_self;
     return `
-      <div class="reddit-item${i >= LIST_INITIAL ? ' list-hidden' : ''}"${i >= LIST_INITIAL ? ' data-extra="true"' : ''}>
+      <div class="reddit-item">
         <a class="reddit-title" href="https://reddit.com${esc(p.permalink)}" target="_blank" rel="noreferrer">
           ${esc(p.title)}${isLink ? ' <span class="ext-icon">↗</span>' : ''}
         </a>
@@ -494,11 +497,33 @@ function renderReddit(el, posts) {
       </div>
     `;
   }).join('');
-  const extra = posts.length - LIST_INITIAL;
-  const btn   = extra > 0
-    ? `<button class="show-more-btn" onclick="toggleListExpand(this)">SHOW MORE (${extra} more) ↓</button>`
-    : '';
-  el.innerHTML = rows + btn;
+  el.innerHTML = rows;
+}
+
+/** Minimize/maximize a card section (code-editor style collapse) */
+function toggleSection(btn) {
+  const card = btn.closest('.card');
+  if (!card) return;
+  const body = card.querySelector('.tab-body');
+  if (!body) return;
+  body.classList.toggle('section-collapsed');
+  btn.classList.toggle('collapsed');
+}
+
+/** Expand a card to fill the full center area; restore restores normal layout */
+function toggleMaximize(btn) {
+  const card = btn.closest('.card');
+  if (!card) return;
+  const isMax = card.classList.toggle('maximized');
+  btn.textContent = isMax ? '⤡' : '⤢';
+  btn.title = isMax ? 'Restore' : 'Maximize';
+  if (isMax) {
+    // Ensure section is not collapsed when maximizing
+    const body = card.querySelector('.tab-body');
+    if (body) body.classList.remove('section-collapsed');
+    const toggle = card.querySelector('.section-toggle');
+    if (toggle) toggle.classList.remove('collapsed');
+  }
 }
 
 /** Toggle show-more expansion in the parent container */
@@ -1422,29 +1447,32 @@ async function fetchRSS(url, count = 20, useR2J = true) {
 /** Extract thumbnail URL from an RSS/Atom XML item node.
  *  Tries multiple strategies across different feed formats. */
 function extractThumbnail(n) {
-  const MEDIA_NS = 'http://search.yahoo.com/mrss/';
+  const MEDIA_NS  = 'http://search.yahoo.com/mrss/';
+  const MEDIA_NS2 = 'http://search.yahoo.com/mrss'; // some feeds omit trailing slash
 
-  // 1. media:thumbnail — namespace-aware first, then prefixed fallback
-  const t1 = n.getElementsByTagNameNS(MEDIA_NS, 'thumbnail')[0]?.getAttribute('url')
+  // 1. media:thumbnail — both namespace variants + prefixed fallback
+  const t1 = n.getElementsByTagNameNS(MEDIA_NS,  'thumbnail')[0]?.getAttribute('url')
+           || n.getElementsByTagNameNS(MEDIA_NS2, 'thumbnail')[0]?.getAttribute('url')
            || n.getElementsByTagName('media:thumbnail')[0]?.getAttribute('url');
   if (t1) return t1;
 
-  // 2. media:content — prefer medium="image" or image mime/extension
+  // 2. media:content — prefer medium="image" or image MIME/extension
   const mediaEls = [
-    ...n.getElementsByTagNameNS(MEDIA_NS, 'content'),
+    ...n.getElementsByTagNameNS(MEDIA_NS,  'content'),
+    ...n.getElementsByTagNameNS(MEDIA_NS2, 'content'),
     ...n.getElementsByTagName('media:content'),
   ];
-  // deduplicate (same node can appear via both selectors)
-  const seen = new Set();
-  const unique = mediaEls.filter(el => { const k = el.getAttribute('url'); return k && !seen.has(k) && seen.add(k); });
-  // prefer explicit image type/medium
+  const seenMC = new Set();
+  const unique = mediaEls.filter(el => {
+    const k = el.getAttribute('url');
+    return k && !seenMC.has(k) && seenMC.add(k);
+  });
   for (const el of unique) {
     const url    = el.getAttribute('url') || '';
     const medium = el.getAttribute('medium') || '';
     const type   = el.getAttribute('type')   || '';
     if (medium === 'image' || type.startsWith('image/') || /\.(jpg|jpeg|png|webp|gif)(\?|$)/i.test(url)) return url;
   }
-  // fall back to first media:content with any URL
   if (unique[0]?.getAttribute('url')) return unique[0].getAttribute('url');
 
   // 3. <enclosure type="image/...">
@@ -1453,7 +1481,7 @@ function extractThumbnail(n) {
     return enc.getAttribute('url');
   }
 
-  // 4. First <img> in content:encoded (TechCrunch, many WP feeds)
+  // 4. First <img> in content:encoded (TechCrunch, WP feeds)
   const ce = n.getElementsByTagName('content:encoded')[0]?.textContent
           || n.getElementsByTagNameNS('http://purl.org/rss/1.0/modules/content/', 'encoded')[0]?.textContent
           || '';
@@ -1467,6 +1495,14 @@ function extractThumbnail(n) {
   if (desc) {
     const m = desc.match(/<img[^>]+src=["']([^"']+)["']/i);
     if (m?.[1]) return m[1];
+  }
+
+  // 6. Wildcard: any element with a url attribute pointing to an image
+  for (const el of n.querySelectorAll('[url]')) {
+    const url = el.getAttribute('url') || '';
+    if (/\.(jpg|jpeg|png|webp|gif)(\?|$)/i.test(url) || /\/images?\//i.test(url) || /\/thumb/i.test(url)) {
+      return url;
+    }
   }
 
   return '';
@@ -1516,7 +1552,14 @@ async function fetchTickerPrices(symbols) {
 async function fetchRSSMany(urls, countPerFeed = 20, useR2J = true) {
   const results = await Promise.allSettled(urls.map(url => fetchRSS(url, countPerFeed, useR2J)));
   const all = results.flatMap(r => r.status === 'fulfilled' ? r.value : []);
-  all.sort((a, b) => new Date(b.pubDate) - new Date(a.pubDate));
+  all.sort((a, b) => {
+    const da = new Date(a.pubDate).getTime();
+    const db = new Date(b.pubDate).getTime();
+    if (isNaN(da) && isNaN(db)) return 0;
+    if (isNaN(da)) return 1;   // push unparseable dates to end
+    if (isNaN(db)) return -1;
+    return db - da;            // newest first
+  });
   const seen = new Set();
   return all.filter(item => {
     if (!item.title || seen.has(item.title)) return false;
