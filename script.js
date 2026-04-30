@@ -98,6 +98,16 @@ document.addEventListener('DOMContentLoaded', () => {
   startCountdown();
   setInterval(refreshAll, REFRESH_MS);
   setTimeout(prefetchAll, 1500);
+
+  const noteTA = document.getElementById('noteTextarea');
+  if (noteTA) noteTA.addEventListener('paste', handleNotePaste);
+  const noteEditorEl = document.getElementById('noteEditor');
+  if (noteEditorEl) {
+    noteEditorEl.addEventListener('dragover', e => {
+      if ([...e.dataTransfer.items].some(i => i.kind === 'file' && i.type.startsWith('image/'))) e.preventDefault();
+    });
+    noteEditorEl.addEventListener('drop', handleNoteDrop);
+  }
 });
 
 function refreshAll() {
@@ -810,6 +820,73 @@ function deleteCurrentNote() {
   const editorEl = document.getElementById('noteEditor');
   if (emptyEl)  emptyEl.style.display  = 'flex';
   if (editorEl) editorEl.style.display = 'none';
+}
+
+/* ── Image paste / drop into notes ───────────────────────────────── */
+async function handleNotePaste(e) {
+  if (!activeNoteId) return;
+  const imgItem = [...(e.clipboardData?.items || [])].find(i => i.type.startsWith('image/'));
+  if (!imgItem) return;
+  e.preventDefault();
+  const blob = imgItem.getAsFile();
+  if (blob) await embedImage(blob);
+}
+
+async function handleNoteDrop(e) {
+  if (!activeNoteId) return;
+  const imgFile = [...(e.dataTransfer?.files || [])].find(f => f.type.startsWith('image/'));
+  if (!imgFile) return;
+  e.preventDefault();
+  if (noteMode !== 'edit') setNoteMode('edit');
+  await embedImage(imgFile);
+}
+
+async function embedImage(blob) {
+  const textarea = document.getElementById('noteTextarea');
+  if (!textarea) return;
+  if (noteMode !== 'edit') setNoteMode('edit');
+  const placeholder = '![uploading…]()';
+  insertAtCursor(textarea, placeholder);
+  onNoteBodyChange();
+  try {
+    const dataUrl = await resizeImageForNote(blob);
+    const cur = textarea.value;
+    const idx = cur.indexOf(placeholder);
+    textarea.value = idx !== -1
+      ? cur.slice(0, idx) + `![](${dataUrl})` + cur.slice(idx + placeholder.length)
+      : cur + `\n![](${dataUrl})`;
+  } catch {
+    textarea.value = textarea.value.replace(placeholder, '');
+  }
+  onNoteBodyChange();
+}
+
+function resizeImageForNote(blob, maxWidth = 1000, quality = 0.82) {
+  return new Promise((resolve, reject) => {
+    const img = new Image();
+    const url = URL.createObjectURL(blob);
+    img.onload = () => {
+      URL.revokeObjectURL(url);
+      const scale  = Math.min(1, maxWidth / img.naturalWidth);
+      const w      = Math.round(img.naturalWidth  * scale);
+      const h      = Math.round(img.naturalHeight * scale);
+      const canvas = document.createElement('canvas');
+      canvas.width  = w;
+      canvas.height = h;
+      canvas.getContext('2d').drawImage(img, 0, 0, w, h);
+      resolve(canvas.toDataURL('image/jpeg', quality));
+    };
+    img.onerror = reject;
+    img.src     = url;
+  });
+}
+
+function insertAtCursor(textarea, text) {
+  const start = textarea.selectionStart;
+  const end   = textarea.selectionEnd;
+  textarea.value = textarea.value.slice(0, start) + text + textarea.value.slice(end);
+  textarea.selectionStart = textarea.selectionEnd = start + text.length;
+  textarea.focus();
 }
 
 /* ════════════════════════════════════════════════════════════════════

@@ -1247,8 +1247,9 @@ button { font-family: var(--font); cursor: pointer; }
   margin: 0 0 .9em;
   font-style: italic;
 }
-.markdown-body a    { color: var(--link); }
+.markdown-body a      { color: var(--link); }
 .markdown-body strong { font-weight: 700; }
+.markdown-body img    { max-width: 100%; border-radius: 6px; margin: .4em 0; display: block; }
 .markdown-body hr {
   border: none;
   border-top: 1px solid var(--border);
