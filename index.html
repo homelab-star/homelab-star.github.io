@@ -17,9 +17,10 @@
     <div class="header-left">
       <span class="logo" aria-hidden="true">⊞</span>
       <nav class="main-nav">
-        <a href="#" class="nav-link active" data-page="home"  onclick="switchTab('home');  return false;">⌂ Home</a>
-        <a href="#" class="nav-link"        data-page="tasks" onclick="switchTab('tasks'); return false;">◎ Tasks</a>
-        <a href="#" class="nav-link"        data-page="notes" onclick="switchTab('notes'); return false;">✎ Notes</a>
+        <a href="#" class="nav-link active" data-page="home"   onclick="switchTab('home');   return false;">⌂ Home</a>
+        <a href="#" class="nav-link"        data-page="reddit" onclick="switchTab('reddit'); return false;">◫ Reddit</a>
+        <a href="#" class="nav-link"        data-page="tasks"  onclick="switchTab('tasks');  return false;">◎ Tasks</a>
+        <a href="#" class="nav-link"        data-page="notes"  onclick="switchTab('notes');  return false;">✎ Notes</a>
       </nav>
     </div>
     <div class="header-right">
@@ -98,10 +99,6 @@
               <button class="tab active" data-tab="us">US</button>
               <button class="tab" data-tab="world">WORLD</button>
               <button class="tab" data-tab="sports">SPORTS</button>
-              <div class="card-actions">
-                <button class="section-maximize" onclick="toggleMaximize(this)" title="Maximize" aria-label="Maximize section">⤢</button>
-                <button class="section-toggle"   onclick="toggleSection(this)"  title="Collapse" aria-label="Collapse section">▾</button>
-              </div>
             </div>
             <div class="tab-body" id="newsContent">
               <div class="loading-msg">Loading news…</div>
@@ -109,7 +106,12 @@
           </section>
         </div>
 
-        <!-- ── Reddit Widget ───────────────────────────────────────── -->
+      </main>
+    </div><!-- /pageHome -->
+
+    <!-- ══ REDDIT tab ═══════════════════════════════════════════════════ -->
+    <div class="page-view" id="pageReddit">
+      <main class="center">
         <div class="card">
           <section class="widget">
             <div class="tabs reddit-tabs">
@@ -120,19 +122,14 @@
               <button class="tab" data-sub="wallstreetbets">R/WSB</button>
               <button class="tab" data-sub="selfhosted">R/SELFHOSTED</button>
               <button class="tab" data-sub="homelab">R/HOMELAB</button>
-              <div class="card-actions">
-                <button class="section-maximize" onclick="toggleMaximize(this)" title="Maximize" aria-label="Maximize section">⤢</button>
-                <button class="section-toggle"   onclick="toggleSection(this)"  title="Collapse" aria-label="Collapse section">▾</button>
-              </div>
             </div>
             <div class="tab-body" id="redditContent">
               <div class="loading-msg">Loading posts…</div>
             </div>
           </section>
         </div>
-
       </main>
-    </div><!-- /pageHome -->
+    </div><!-- /pageReddit -->
 
     <!-- ══ TASKS tab ════════════════════════════════════════════════════ -->
     <div class="page-view" id="pageTasks">

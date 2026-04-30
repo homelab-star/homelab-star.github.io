@@ -415,29 +415,6 @@ function renderReddit(el, posts) {
   el.innerHTML = rows;
 }
 
-function toggleSection(btn) {
-  const card = btn.closest('.card');
-  if (!card) return;
-  const body = card.querySelector('.tab-body');
-  if (!body) return;
-  body.classList.toggle('section-collapsed');
-  btn.classList.toggle('collapsed');
-}
-
-function toggleMaximize(btn) {
-  const card = btn.closest('.card');
-  if (!card) return;
-  const isMax = card.classList.toggle('maximized');
-  btn.textContent = isMax ? '⤡' : '⤢';
-  btn.title = isMax ? 'Restore' : 'Maximize';
-  if (isMax) {
-    const body = card.querySelector('.tab-body');
-    if (body) body.classList.remove('section-collapsed');
-    const toggle = card.querySelector('.section-toggle');
-    if (toggle) toggle.classList.remove('collapsed');
-  }
-}
-
 function toggleListExpand(btn) {
   const container = btn.parentElement;
   const expanded  = btn.dataset.expanded === 'true';
@@ -477,10 +454,8 @@ function switchTab(tab) {
 
 function initTab() {
   const saved = localStorage.getItem('dash_activeTab') || 'home';
-  const valid = new Set(['home', 'tasks', 'notes']);
+  const valid = new Set(['home', 'reddit', 'tasks', 'notes']);
   const tab   = valid.has(saved) ? saved : 'home';
-  // Do NOT set activeTab here — switchTab needs activeTab !== tab to proceed.
-  // activeTab is initialized to 'home' at module scope, so this is safe.
   if (tab !== 'home') switchTab(tab);
 }
 

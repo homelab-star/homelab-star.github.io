@@ -235,8 +235,9 @@ button { font-family: var(--font); cursor: pointer; }
 }
 .page-view.active { display: flex; }
 
-/* Home: sidebar left, scrollable center right */
-#pageHome { flex-direction: row; align-items: stretch; }
+/* Home / Reddit: scrollable center column */
+#pageHome,
+#pageReddit { flex-direction: row; align-items: stretch; }
 
 /* Tasks / Notes: full-height column containers */
 #pageTasks,
@@ -253,7 +254,6 @@ button { font-family: var(--font); cursor: pointer; }
   height: var(--bmark-h);
   display: flex;
   align-items: center;
-  overflow: hidden;
 }
 
 .bookmark-bar-inner {
@@ -356,10 +356,7 @@ button { font-family: var(--font); cursor: pointer; }
 }
 .card .tab-body {
   padding: 0;
-  overflow-y: auto;
-  max-height: calc(50vh - 100px);
 }
-.tab-body.section-collapsed { display: none; }
 .card .widget { margin-bottom: 0; }
 
 /* ── Tabs ─────────────────────────────────────────────────────────── */
@@ -388,64 +385,6 @@ button { font-family: var(--font); cursor: pointer; }
 .tab:hover { color: var(--text2); background: rgba(79,70,229,.05); }
 .tab.active { color: var(--accent); border-bottom-color: var(--accent); background: var(--bg2); }
 
-/* ── Card action buttons (collapse + maximize) ────────────────────── */
-.card-actions {
-  margin-left: auto;
-  flex-shrink: 0;
-  display: flex;
-  align-items: center;
-  gap: 4px;
-  padding: 0 10px;
-  height: 100%;
-  border-left: 1px solid var(--border);
-}
-.section-maximize,
-.section-toggle {
-  background: var(--bg2);
-  border: 1px solid var(--border2);
-  color: var(--text2);
-  font-size: .82rem;
-  width: 28px;
-  height: 28px;
-  padding: 0;
-  border-radius: 7px;
-  cursor: pointer;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  line-height: 1;
-  box-shadow: 0 1px 3px rgba(0,0,0,.07);
-  transition: background .12s, color .12s, border-color .12s, box-shadow .15s;
-}
-.section-maximize:hover,
-.section-toggle:hover {
-  background: var(--accent);
-  color: #fff;
-  border-color: var(--accent);
-  box-shadow: 0 2px 10px rgba(79,70,229,.40);
-}
-.section-toggle { transition: background .12s, color .12s, border-color .12s, box-shadow .15s, transform .22s; }
-.section-toggle.collapsed { transform: rotate(-90deg); }
-
-/* ── Maximized card — fills full center column ────────────────────── */
-.card.maximized {
-  flex: 1;
-  min-height: 0;
-  margin-bottom: 0;
-  display: flex;
-  flex-direction: column;
-}
-.card.maximized .tab-body {
-  flex: 1;
-  max-height: none;
-  overflow-y: auto;
-}
-.center:has(.card.maximized) {
-  overflow-y: hidden;
-}
-.center:has(.card.maximized) .card:not(.maximized) {
-  display: none;
-}
 
 /* ── Tab Body ─────────────────────────────────────────────────────── */
 .tab-body { padding-top: 4px; }
@@ -1286,7 +1225,7 @@ button { font-family: var(--font); cursor: pointer; }
   #pageHome { flex-direction: column; }
 
   #pageTasks,
-  #pageNotes { height: calc(100vh - var(--header-h) - var(--bmark-h)); }
+  #pageNotes  { height: calc(100vh - var(--header-h) - var(--bmark-h)); }
 
   .center { padding: 12px 14px; }
 
