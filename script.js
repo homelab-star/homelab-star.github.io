@@ -10,7 +10,7 @@ const MYPROXY     = 'https://proxy.emmzy.com/?url=';          // own CF Worker �
 const R2J         = 'https://api.rss2json.com/v1/api.json?rss_url=';
 const ALLORIGINS  = 'https://api.allorigins.win/get?url=';
 const CORSPROXY   = 'https://corsproxy.io/?';
-const REFRESH_MS  = 15 * 60 * 1000;       // 15 min between auto-refreshes
+const REFRESH_MS  = 3 * 60 * 60 * 1000;   // 3 hr between auto-refreshes
 const LS_PREFIX   = 'dash_';
 const CACHE_MAX_MS = 2 * 60 * 60 * 1000;  // 2 h — ignore older localStorage entries
 
@@ -89,7 +89,7 @@ const GIST_NOTES_FILE = 'dashboard-notes.json';
 ════════════════════════════════════════════════════════════════════ */
 document.addEventListener('DOMContentLoaded', () => {
   initFontSize();
-  initSidebar();
+  initBookmarkBar();
   loadLocalData();    // must run before initTab so tasks/notes are ready
   syncOnLoad();       // async pull from Gist if creds present
   initTab();
@@ -110,7 +110,20 @@ document.addEventListener('DOMContentLoaded', () => {
   }
 });
 
+function pruneCache() {
+  const now  = Date.now();
+  const keep = new Set(['dash_fontSize','dash_sidebarCollapsed','dash_bmarkCollapsed',
+    'dash_gh_token','dash_tasks_gist_id','dash_notes_gist_id','dash_tasks','dash_notes','dash_activeTab']);
+  Object.keys(localStorage)
+    .filter(k => k.startsWith(LS_PREFIX) && !keep.has(k))
+    .forEach(k => {
+      try { if (now - JSON.parse(localStorage.getItem(k)).ts > CACHE_MAX_MS) localStorage.removeItem(k); }
+      catch { /* not a timestamped entry — skip */ }
+    });
+}
+
 function refreshAll() {
+  pruneCache();
   cache.news   = {};
   cache.reddit = {};
 
@@ -127,7 +140,7 @@ function refreshAll() {
 function clearCache() {
   // Preserve user settings and personal data; wipe only RSS/Reddit caches
   const KEEP = new Set([
-    'dash_fontSize', 'dash_sidebarCollapsed',
+    'dash_fontSize', 'dash_bmarkCollapsed', 'dash_activeTab',
     'dash_gh_token',
     'dash_tasks_gist_id', 'dash_notes_gist_id',
     'dash_tasks',         'dash_notes',
@@ -528,10 +541,10 @@ function renderTasks() {
     if (task.done) {
       return `<div class="task-item done" data-id="${task.id}">
         <div class="task-main-row">
-          <button class="task-check done" onclick="toggleTaskDone('${task.id}')">☑</button>
+          <button class="task-check done" onclick="toggleTaskDone('${task.id}')" aria-label="Mark incomplete">☑</button>
           <span class="task-text">${esc(task.text)}</span>
           <div class="task-item-actions">
-            <button class="task-del-btn" onclick="deleteTask('${task.id}')">✕</button>
+            <button class="task-del-btn" onclick="deleteTask('${task.id}')" aria-label="Delete task">✕</button>
           </div>
         </div>
       </div>`;
@@ -552,11 +565,11 @@ function renderTasks() {
 
     return `<div class="task-item" data-id="${task.id}">
       <div class="task-main-row">
-        <button class="task-check" onclick="toggleTaskDone('${task.id}')">☐</button>
+        <button class="task-check" onclick="toggleTaskDone('${task.id}')" aria-label="Mark complete">☐</button>
         <span class="task-text">${esc(task.text)}</span>
         <div class="task-item-actions">
-          <button class="task-edit-btn" onclick="toggleEditTask('${task.id}')">✎</button>
-          <button class="task-del-btn" onclick="deleteTask('${task.id}')">✕</button>
+          <button class="task-edit-btn" onclick="toggleEditTask('${task.id}')" aria-label="Edit task">✎</button>
+          <button class="task-del-btn" onclick="deleteTask('${task.id}')" aria-label="Delete task">✕</button>
         </div>
       </div>
       ${dueChip || descPreview ? `<div class="task-meta-row">${dueChip}${descPreview}</div>` : ''}
@@ -1347,27 +1360,24 @@ function applyFontSize(size, save = true) {
 }
 
 /* ════════════════════════════════════════════════════════════════════
-   SIDEBAR TOGGLE (mobile)
+   BOOKMARK BAR (mobile toggle)
 ════════════════════════════════════════════════════════════════════ */
-function toggleSidebar() {
-  const content = document.getElementById('sidebarContent');
-  const btn     = document.getElementById('sidebarToggle');
-  if (!content) return;
-  const collapsed = content.classList.toggle('collapsed');
-  if (btn) btn.classList.toggle('collapsed', collapsed);
-  localStorage.setItem('dash_sidebarCollapsed', collapsed ? '1' : '0');
+function toggleBookmarkBar() {
+  const bar = document.querySelector('.bookmark-bar');
+  const btn = document.getElementById('bmarkToggle');
+  if (!bar) return;
+  const open = bar.classList.toggle('open');
+  if (btn) btn.setAttribute('aria-expanded', open ? 'true' : 'false');
+  localStorage.setItem('dash_bmarkCollapsed', open ? '0' : '1');
 }
 
-function initSidebar() {
-  const content = document.getElementById('sidebarContent');
-  const btn     = document.getElementById('sidebarToggle');
-  if (!content) return;
-  content.style.maxHeight = content.scrollHeight + 'px';
-  if (window.innerWidth <= 860) {
-    const wasCollapsed = localStorage.getItem('dash_sidebarCollapsed') === '1';
-    if (wasCollapsed) {
-      content.classList.add('collapsed');
-      if (btn) btn.classList.add('collapsed');
-    }
+function initBookmarkBar() {
+  if (window.innerWidth > 860) return;
+  const bar = document.querySelector('.bookmark-bar');
+  const btn = document.getElementById('bmarkToggle');
+  const wasCollapsed = localStorage.getItem('dash_bmarkCollapsed') === '1';
+  if (!wasCollapsed && bar) {
+    bar.classList.add('open');
+    if (btn) btn.setAttribute('aria-expanded', 'true');
   }
 }

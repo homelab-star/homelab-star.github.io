@@ -15,7 +15,7 @@
   <!-- ── Header ─────────────────────────────────────────────────────── -->
   <header class="header">
     <div class="header-left">
-      <span class="logo">⊞</span>
+      <span class="logo" aria-hidden="true">⊞</span>
       <nav class="main-nav">
         <a href="#" class="nav-link active" data-page="home"  onclick="switchTab('home');  return false;">⌂ Home</a>
         <a href="#" class="nav-link"        data-page="tasks" onclick="switchTab('tasks'); return false;">◎ Tasks</a>
@@ -23,60 +23,70 @@
       </nav>
     </div>
     <div class="header-right">
-      <span class="refresh-indicator" id="refreshTimer" title="Next auto-refresh"></span>
+      <span class="refresh-indicator" id="refreshTimer" title="Next auto-refresh" aria-live="polite"></span>
       <div class="font-ctrl" title="Font size">
-        <button class="font-btn" onclick="changeFontSize(-1)" title="Decrease font size">A−</button>
-        <button class="font-btn" onclick="changeFontSize(1)"  title="Increase font size">A+</button>
+        <button class="font-btn" onclick="changeFontSize(-1)" title="Decrease font size" aria-label="Decrease font size">A−</button>
+        <button class="font-btn" onclick="changeFontSize(1)"  title="Increase font size" aria-label="Increase font size">A+</button>
       </div>
-      <button class="settings-btn" onclick="openSettings()" title="Sync settings">⚙</button>
-      <button class="clear-cache-btn" id="clearCacheBtn" onclick="clearCache()" title="Clear all cached data and re-fetch everything">⊗ Clear</button>
+      <button class="settings-btn" onclick="openSettings()" title="Sync settings" aria-label="Sync settings">⚙</button>
+      <button class="clear-cache-btn" id="clearCacheBtn" onclick="clearCache()" title="Clear all cached data and re-fetch everything" aria-label="Clear cache and refresh">⊗ Clear</button>
     </div>
   </header>
+
+  <!-- ── Bookmark bar ────────────────────────────────────────────────── -->
+  <div class="bookmark-bar">
+    <div class="bookmark-bar-inner" id="bookmarkInner">
+      <a href="https://mail.google.com/mail/u/0/" class="bmark" target="_blank" rel="noreferrer" aria-label="Gmail">
+        <img class="bmark-icon" src="https://www.google.com/s2/favicons?domain=mail.google.com&sz=32" alt="">
+        <span class="bmark-label">Gmail</span>
+      </a>
+      <a href="https://www.redfin.com/" class="bmark" target="_blank" rel="noreferrer" aria-label="Redfin">
+        <img class="bmark-icon" src="https://www.google.com/s2/favicons?domain=redfin.com&sz=32" alt="">
+        <span class="bmark-label">Redfin</span>
+      </a>
+      <a href="https://slickdeals.net/forums/forumdisplay.php?f=9" class="bmark" target="_blank" rel="noreferrer" aria-label="Slickdeals">
+        <img class="bmark-icon" src="https://www.google.com/s2/favicons?domain=slickdeals.net&sz=32" alt="">
+        <span class="bmark-label">Deals</span>
+      </a>
+      <a href="https://www.greatandhra.com/" class="bmark" target="_blank" rel="noreferrer" aria-label="Greatandhra">
+        <img class="bmark-icon" src="https://www.google.com/s2/favicons?domain=greatandhra.com&sz=32" alt="">
+        <span class="bmark-label">G.Andhra</span>
+      </a>
+      <a href="https://www.gulte.com/" class="bmark" target="_blank" rel="noreferrer" aria-label="Gulte">
+        <img class="bmark-icon" src="https://www.google.com/s2/favicons?domain=gulte.com&sz=32" alt="">
+        <span class="bmark-label">Gulte</span>
+      </a>
+      <a href="https://www.cnn.com/" class="bmark" target="_blank" rel="noreferrer" aria-label="CNN">
+        <img class="bmark-icon" src="https://www.google.com/s2/favicons?domain=cnn.com&sz=32" alt="">
+        <span class="bmark-label">CNN</span>
+      </a>
+      <a href="https://www.yahoo.com/" class="bmark" target="_blank" rel="noreferrer" aria-label="Yahoo">
+        <img class="bmark-icon" src="https://www.google.com/s2/favicons?domain=yahoo.com&sz=32" alt="">
+        <span class="bmark-label">Yahoo</span>
+      </a>
+      <a href="https://www.reddit.com/" class="bmark" target="_blank" rel="noreferrer" aria-label="Reddit">
+        <img class="bmark-icon" src="https://www.google.com/s2/favicons?domain=reddit.com&sz=32" alt="">
+        <span class="bmark-label">Reddit</span>
+      </a>
+      <a href="https://www.espncricinfo.com/" class="bmark" target="_blank" rel="noreferrer" aria-label="Cricinfo">
+        <img class="bmark-icon" src="https://www.google.com/s2/favicons?domain=espncricinfo.com&sz=32" alt="">
+        <span class="bmark-label">Cricinfo</span>
+      </a>
+      <a href="https://www.espn.com/" class="bmark" target="_blank" rel="noreferrer" aria-label="ESPN">
+        <img class="bmark-icon" src="https://www.google.com/s2/favicons?domain=espn.com&sz=32" alt="">
+        <span class="bmark-label">ESPN</span>
+      </a>
+    </div>
+    <button class="bmark-toggle" id="bmarkToggle" onclick="toggleBookmarkBar()" aria-label="Toggle bookmarks" aria-expanded="false">
+      Bookmarks <span class="bmark-arrow">▾</span>
+    </button>
+  </div>
 
   <!-- ── Main layout ────────────────────────────────────────────────── -->
   <div class="main-layout">
 
     <!-- ══ HOME tab ════════════════════════════════════════════════════ -->
     <div class="page-view active" id="pageHome">
-
-      <!-- Left Sidebar: Bookmarks -->
-      <aside class="sidebar">
-        <div class="sidebar-header">
-          <span class="section-label">BOOKMARKS</span>
-          <button class="sidebar-toggle" id="sidebarToggle" onclick="toggleSidebar()" title="Toggle bookmarks">▾</button>
-        </div>
-
-        <div class="sidebar-content" id="sidebarContent">
-          <div class="bookmark-group">
-            <ul class="bookmark-list">
-              <li><a href="https://finviz.com/" target="_blank" rel="noreferrer">Finviz <span class="ext">↗</span></a></li>
-              <li><a href="https://finance.yahoo.com/chart/NFLX" target="_blank" rel="noreferrer">Yahoo Chart <span class="ext">↗</span></a></li>
-              <li><a href="https://mail.google.com/mail/u/0/" target="_blank" rel="noreferrer">Gmail <span class="ext">↗</span></a></li>
-              <li><a href="https://www.redfin.com/" target="_blank" rel="noreferrer">Redfin <span class="ext">↗</span></a></li>
-              <li><a href="https://slickdeals.net/forums/forumdisplay.php?f=9" target="_blank" rel="noreferrer">Slickdeals <span class="ext">↗</span></a></li>
-            </ul>
-          </div>
-
-          <div class="bookmark-group">
-            <div class="bookmark-group-title" style="--group-color: hsl(10,70%,60%)">News</div>
-            <ul class="bookmark-list">
-              <li><a href="https://www.greatandhra.com/" target="_blank" rel="noreferrer">Greatandhra <span class="ext">↗</span></a></li>
-              <li><a href="https://www.gulte.com/" target="_blank" rel="noreferrer">Gulte <span class="ext">↗</span></a></li>
-              <li><a href="https://www.cnn.com/" target="_blank" rel="noreferrer">CNN <span class="ext">↗</span></a></li>
-              <li><a href="https://www.yahoo.com/" target="_blank" rel="noreferrer">Yahoo <span class="ext">↗</span></a></li>
-            </ul>
-          </div>
-
-          <div class="bookmark-group">
-            <div class="bookmark-group-title" style="--group-color: hsl(200,50%,60%)">Sports</div>
-            <ul class="bookmark-list">
-              <li><a href="https://www.reddit.com/" target="_blank" rel="noreferrer">Reddit <span class="ext">↗</span></a></li>
-              <li><a href="https://www.espncricinfo.com/" target="_blank" rel="noreferrer">Cricinfo <span class="ext">↗</span></a></li>
-              <li><a href="https://www.espn.com/" target="_blank" rel="noreferrer">ESPN <span class="ext">↗</span></a></li>
-            </ul>
-          </div>
-        </div>
-      </aside>
 
       <!-- Center content -->
       <main class="center">
@@ -89,8 +99,8 @@
               <button class="tab" data-tab="world">WORLD</button>
               <button class="tab" data-tab="sports">SPORTS</button>
               <div class="card-actions">
-                <button class="section-maximize" onclick="toggleMaximize(this)" title="Maximize">⤢</button>
-                <button class="section-toggle" onclick="toggleSection(this)" title="Collapse">▾</button>
+                <button class="section-maximize" onclick="toggleMaximize(this)" title="Maximize" aria-label="Maximize section">⤢</button>
+                <button class="section-toggle"   onclick="toggleSection(this)"  title="Collapse" aria-label="Collapse section">▾</button>
               </div>
             </div>
             <div class="tab-body" id="newsContent">
@@ -111,8 +121,8 @@
               <button class="tab" data-sub="selfhosted">R/SELFHOSTED</button>
               <button class="tab" data-sub="homelab">R/HOMELAB</button>
               <div class="card-actions">
-                <button class="section-maximize" onclick="toggleMaximize(this)" title="Maximize">⤢</button>
-                <button class="section-toggle" onclick="toggleSection(this)" title="Collapse">▾</button>
+                <button class="section-maximize" onclick="toggleMaximize(this)" title="Maximize" aria-label="Maximize section">⤢</button>
+                <button class="section-toggle"   onclick="toggleSection(this)"  title="Collapse" aria-label="Collapse section">▾</button>
               </div>
             </div>
             <div class="tab-body" id="redditContent">
@@ -152,7 +162,7 @@
         <div class="tasks-filterbar">
           <span class="tasks-count" id="tasksCount"></span>
           <div class="filterbar-actions">
-            <button class="sync-btn" id="tasksSyncBtn" onclick="syncTasks()" title="Sync tasks now">⟳</button>
+            <button class="sync-btn" id="tasksSyncBtn" onclick="syncTasks()" title="Sync tasks now" aria-label="Sync tasks">⟳</button>
             <button class="show-done-btn" id="showDoneBtn" onclick="toggleShowDone()">Hide completed</button>
           </div>
         </div>
@@ -180,7 +190,7 @@
                 <button class="mode-btn active" id="editModeBtn" onclick="setNoteMode('edit')">Edit</button>
                 <button class="mode-btn" id="previewModeBtn" onclick="setNoteMode('preview')">Preview</button>
               </div>
-              <button class="note-delete-btn" onclick="deleteCurrentNote()" title="Delete note">🗑</button>
+              <button class="note-delete-btn" onclick="deleteCurrentNote()" title="Delete note" aria-label="Delete note">🗑</button>
             </div>
             <textarea class="note-textarea" id="noteTextarea"
                       placeholder="Write markdown here…" oninput="onNoteBodyChange()"></textarea>
@@ -193,8 +203,8 @@
           <div class="notes-sidebar-hdr">
             <span class="section-label">NOTES</span>
             <div style="display:flex;gap:6px">
-              <button class="icon-btn" id="notesSyncBtn" onclick="syncNotes()" title="Sync notes now">⟳</button>
-              <button class="icon-btn" onclick="createNote()" title="New note">+</button>
+              <button class="icon-btn" id="notesSyncBtn" onclick="syncNotes()" title="Sync notes now" aria-label="Sync notes">⟳</button>
+              <button class="icon-btn" onclick="createNote()" title="New note" aria-label="New note">+</button>
             </div>
           </div>
           <div class="notes-list" id="notesList"></div>
@@ -206,16 +216,16 @@
   </div><!-- /main-layout -->
 
   <!-- ── Settings modal ─────────────────────────────────────────────── -->
-  <div class="settings-overlay" id="settingsOverlay">
+  <div class="settings-overlay" id="settingsOverlay" role="dialog" aria-modal="true" aria-label="Sync settings">
     <div class="settings-modal">
       <div class="settings-header">
         <span>⚙ Sync Settings</span>
-        <button class="settings-close-btn" onclick="closeSettings()">✕</button>
+        <button class="settings-close-btn" onclick="closeSettings()" aria-label="Close settings">✕</button>
       </div>
       <p class="settings-note">Enter your GitHub PAT (gist scope). It is saved only in this browser, never in the source repo. Tasks and notes are auto-synced to two private gists named <code>dashboard-tasks</code> and <code>dashboard-notes</code>.</p>
       <label class="settings-label">GitHub Personal Access Token</label>
       <input type="password" id="settingsToken" class="settings-input" placeholder="ghp_…" autocomplete="off"/>
-      <div class="settings-status" id="settingsStatus"></div>
+      <div class="settings-status" id="settingsStatus" aria-live="polite"></div>
       <div class="settings-actions">
         <button class="settings-save-btn" onclick="saveSettings()">Save &amp; Sync</button>
         <button class="settings-cancel-btn" onclick="closeSettings()">Cancel</button>

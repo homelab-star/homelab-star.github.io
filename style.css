@@ -24,7 +24,7 @@
   --header-h:    48px;
   --header-bg:   #0f1629;
   --header-border: #1e2b45;
-  --sidebar-w:   180px;
+  --bmark-h:     56px;
   --radius:      10px;
   --radius-sm:   6px;
   --card-shadow: 0 1px 4px rgba(0,0,0,.08), 0 6px 20px rgba(0,0,0,.06);
@@ -222,7 +222,7 @@ button { font-family: var(--font); cursor: pointer; }
 /* ── Main layout — full-height tab container ──────────────────────── */
 .main-layout {
   display: flex;
-  height: calc(100vh - var(--header-h));
+  height: calc(100vh - var(--header-h) - var(--bmark-h));
   overflow: hidden;
 }
 
@@ -242,82 +242,91 @@ button { font-family: var(--font); cursor: pointer; }
 #pageTasks,
 #pageNotes { flex-direction: column; }
 
-/* ── Sidebar ──────────────────────────────────────────────────────── */
-.sidebar {
-  width: var(--sidebar-w);
-  flex-shrink: 0;
-  padding: 14px 14px 16px;
-  border-right: 1px solid var(--border);
+/* ── Bookmark bar ─────────────────────────────────────────────────── */
+.bookmark-bar {
+  position: sticky;
+  top: var(--header-h);
+  z-index: 80;
   background: var(--bg2);
-  height: 100%;
-  overflow-y: auto;
-  box-shadow: 2px 0 8px rgba(79,70,229,.05);
-}
-
-/* Header row: "BOOKMARKS" label + mobile toggle button */
-.sidebar-header {
+  border-bottom: 1px solid var(--border);
+  box-shadow: 0 1px 6px rgba(0,0,0,.06);
+  height: var(--bmark-h);
   display: flex;
   align-items: center;
-  justify-content: space-between;
-  margin-bottom: 10px;
-}
-.sidebar-header .section-label { margin-bottom: 0; }
-
-/* Collapse toggle — hidden on desktop, shown on mobile */
-.sidebar-toggle {
-  display: none;
-  background: transparent;
-  border: 1px solid var(--border2);
-  color: var(--text3);
-  font-size: .88rem;
-  width: 24px;
-  height: 24px;
-  border-radius: var(--radius);
-  line-height: 1;
-  padding: 0;
-  transition: color .15s, transform .2s;
-}
-.sidebar-toggle:hover { color: var(--accent); border-color: var(--accent); }
-.sidebar-toggle.collapsed { transform: rotate(-90deg); }
-
-/* Content wrapper — animated collapse on mobile */
-.sidebar-content {
   overflow: hidden;
-  transition: max-height .3s ease;
 }
-.sidebar-content.collapsed { max-height: 0 !important; }
 
-.bookmark-group { margin-bottom: 4px; }
+.bookmark-bar-inner {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  padding: 0 14px;
+  overflow-x: auto;
+  flex: 1;
+  scrollbar-width: none;
+  height: 100%;
+}
+.bookmark-bar-inner::-webkit-scrollbar { display: none; }
 
-.bookmark-group-title {
+.bmark {
+  display: inline-flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 3px;
+  padding: 5px 8px;
+  border-radius: var(--radius-sm);
+  color: var(--text2);
+  white-space: nowrap;
+  transition: background .14s, color .14s;
+  flex-shrink: 0;
+  min-width: 52px;
+}
+.bmark:hover {
+  background: var(--bg3);
+  color: var(--accent);
+}
+
+.bmark-icon {
+  width: 22px;
+  height: 22px;
+  border-radius: 5px;
+  display: block;
+  object-fit: contain;
+}
+
+.bmark-label {
+  font-size: .62rem;
+  font-weight: 500;
+  letter-spacing: .01em;
+  color: inherit;
+  line-height: 1;
+}
+
+/* Mobile toggle — hidden on desktop */
+.bmark-toggle {
+  display: none;
+  align-items: center;
+  gap: 5px;
+  padding: 0 14px;
+  height: 100%;
+  background: transparent;
+  border: none;
+  border-left: 1px solid var(--border);
+  color: var(--text2);
   font-size: .78rem;
   font-weight: 600;
-  color: var(--group-color, var(--accent));
-  margin: 14px 0 6px;
-  padding-top: 12px;
-  border-top: 1px solid var(--border);
-  letter-spacing: .04em;
+  flex-shrink: 0;
+  white-space: nowrap;
+  cursor: pointer;
+  transition: color .14s;
 }
-
-.bookmark-list {
-  list-style: none;
-  display: flex;
-  flex-direction: column;
-  gap: 3px;
+.bmark-toggle:hover { color: var(--accent); }
+.bmark-arrow {
+  display: inline-block;
+  transition: transform .22s;
+  font-size: .72rem;
 }
-
-.bookmark-list a {
-  font-size: .88rem;
-  display: block;
-  padding: 2px 0;
-}
-
-.ext {
-  font-size: .65rem;
-  vertical-align: super;
-  color: var(--text3);
-  margin-left: 1px;
-}
+.bmark-toggle[aria-expanded="true"] .bmark-arrow { transform: rotate(-180deg); }
 
 /* ── Center ───────────────────────────────────────────────────────── */
 .center {
@@ -1277,7 +1286,7 @@ button { font-family: var(--font); cursor: pointer; }
   #pageHome { flex-direction: column; }
 
   #pageTasks,
-  #pageNotes { height: calc(100vh - var(--header-h)); }
+  #pageNotes { height: calc(100vh - var(--header-h) - var(--bmark-h)); }
 
   .center { padding: 12px 14px; }
 
@@ -1299,47 +1308,24 @@ button { font-family: var(--font); cursor: pointer; }
     max-height: 38vh;
   }
 
-  /* Bookmarks sidebar: full-width collapsible strip */
-  .sidebar {
-    width: 100%;
-    height: auto;
-    border-right: none;
-    border-bottom: 1px solid var(--border);
-    padding: 10px 14px 12px;
-    box-shadow: none;
-  }
-  .sidebar-toggle { display: flex; align-items: center; justify-content: center; }
-
-  .sidebar-content { max-height: 400px; }
-  .sidebar-content.collapsed { max-height: 0 !important; }
-
-  .bookmark-list {
+  /* Bookmark bar: collapse inner, show toggle button */
+  :root { --bmark-h: 42px; }
+  .bmark-toggle { display: flex; }
+  .bookmark-bar-inner { display: none; }
+  .bookmark-bar.open { height: auto; flex-direction: column; align-items: stretch; }
+  .bookmark-bar.open .bookmark-bar-inner {
+    display: flex;
     flex-direction: row;
     flex-wrap: wrap;
-    gap: 6px 10px;
+    height: auto;
+    padding: 8px 12px;
+    gap: 4px 6px;
   }
-  .bookmark-list a {
-    display: inline-flex;
-    align-items: center;
-    padding: 4px 12px;
-    border: 1px solid var(--border2);
-    border-radius: 20px;
-    font-size: .82rem;
-    white-space: nowrap;
-    background: var(--bg3);
-    transition: color .15s, border-color .15s, background .15s;
-    min-height: 32px;
-  }
-  .bookmark-list a:hover {
-    border-color: var(--accent);
-    color: var(--accent);
-    background: var(--bg2);
-  }
+  .bookmark-bar.open .bmark-toggle { border-left: none; border-top: 1px solid var(--border); }
+  .bmark { min-width: 44px; }
 
   .nav-link { padding: 6px 8px; font-size: .78rem; letter-spacing: .02em; }
   .main-nav { padding: 2px; gap: 1px; }
-
-  .bookmark-group-title { margin: 10px 0 4px; padding-top: 8px; }
 
   /* Tasks: full padding adjustments */
   .tasks-topbar { padding: 12px 14px 0; }
