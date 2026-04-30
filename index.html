@@ -12,14 +12,14 @@
 </head>
 <body>
 
-  <!-- ── Header ─────────────────────────────────────────────────── -->
+  <!-- ── Header ─────────────────────────────────────────────────────── -->
   <header class="header">
     <div class="header-left">
       <span class="logo">⊞</span>
       <nav class="main-nav">
-        <a href="#" class="nav-link active" data-page="home"   onclick="switchTab('home');   return false;">⌂ Home</a>
-        <a href="#" class="nav-link"        data-page="ai"     onclick="switchTab('ai');     return false;">◈ AI News</a>
-        <a href="#" class="nav-link"        data-page="stocks" onclick="switchTab('stocks'); return false;">▲ Stocks</a>
+        <a href="#" class="nav-link active" data-page="home"  onclick="switchTab('home');  return false;">⌂ Home</a>
+        <a href="#" class="nav-link"        data-page="tasks" onclick="switchTab('tasks'); return false;">◎ Tasks</a>
+        <a href="#" class="nav-link"        data-page="notes" onclick="switchTab('notes'); return false;">✎ Notes</a>
       </nav>
     </div>
     <div class="header-right">
@@ -28,14 +28,15 @@
         <button class="font-btn" onclick="changeFontSize(-1)" title="Decrease font size">A−</button>
         <button class="font-btn" onclick="changeFontSize(1)"  title="Increase font size">A+</button>
       </div>
+      <button class="settings-btn" onclick="openSettings()" title="Sync settings">⚙</button>
       <button class="clear-cache-btn" id="clearCacheBtn" onclick="clearCache()" title="Clear all cached data and re-fetch everything">⊗ Clear</button>
     </div>
   </header>
 
-  <!-- ── Main layout ────────────────────────────────────────────── -->
+  <!-- ── Main layout ────────────────────────────────────────────────── -->
   <div class="main-layout">
 
-    <!-- ══ HOME tab ════════════════════════════════════════════════ -->
+    <!-- ══ HOME tab ════════════════════════════════════════════════════ -->
     <div class="page-view active" id="pageHome">
 
       <!-- Left Sidebar: Bookmarks -->
@@ -80,7 +81,7 @@
       <!-- Center content -->
       <main class="center">
 
-        <!-- ── News Widget ─────────────────────────────────────── -->
+        <!-- ── News Widget ─────────────────────────────────────────── -->
         <div class="card">
           <section class="widget">
             <div class="tabs news-tabs">
@@ -98,7 +99,7 @@
           </section>
         </div>
 
-        <!-- ── Reddit Widget ───────────────────────────────────── -->
+        <!-- ── Reddit Widget ───────────────────────────────────────── -->
         <div class="card">
           <section class="widget">
             <div class="tabs reddit-tabs">
@@ -123,89 +124,102 @@
       </main>
     </div><!-- /pageHome -->
 
-    <!-- ══ AI NEWS tab ═════════════════════════════════════════════ -->
-    <div class="page-view" id="pageAi">
-      <div class="panel-page-header">
-        <span class="section-label">TOP AI NEWS</span>
-        <div class="panel-page-actions">
-          <select class="source-dropdown" id="aiSourceDropdown" onchange="filterAIBySource(this.value)" title="Filter by source">
-            <option value="">All sources</option>
-            <option value="x.com">𝕏 X.com / Twitter</option>
-            <option value="news.ycombinator.com">Hacker News</option>
-            <option value="techcrunch.com">TechCrunch</option>
-            <option value="theverge.com">The Verge</option>
-            <option value="venturebeat.com">VentureBeat</option>
-            <option value="huggingface.co">HuggingFace</option>
-            <option value="arstechnica.com">Ars Technica</option>
-          </select>
-          <button class="icon-btn" onclick="loadAINews(true)" title="Refresh">↺</button>
+    <!-- ══ TASKS tab ════════════════════════════════════════════════════ -->
+    <div class="page-view" id="pageTasks">
+      <div class="tasks-page">
+
+        <!-- Add task bar -->
+        <div class="tasks-topbar">
+          <div class="tasks-add-row" id="taskAddRow">
+            <input class="task-add-input" id="taskAddInput" placeholder="+ Add a task…"
+                   onfocus="expandTaskForm()" onkeydown="taskAddKeydown(event)"/>
+          </div>
+          <div class="task-form-expanded" id="taskFormExpanded" style="display:none">
+            <input class="task-add-input" id="taskAddTitle" placeholder="Task title…"
+                   onkeydown="if(event.key==='Enter'){event.preventDefault();commitAddTask();}if(event.key==='Escape')collapseTaskForm();"/>
+            <div class="task-form-row">
+              <input type="date" class="task-date-input" id="taskAddDue"/>
+              <textarea class="task-desc-input" id="taskAddDesc" placeholder="Notes (optional)…" rows="2"></textarea>
+            </div>
+            <div class="task-form-btns">
+              <button class="task-save-btn" onclick="commitAddTask()">Add Task</button>
+              <button class="task-cancel-btn" onclick="collapseTaskForm()">Cancel</button>
+            </div>
+          </div>
         </div>
+
+        <!-- Filter bar -->
+        <div class="tasks-filterbar">
+          <span class="tasks-count" id="tasksCount"></span>
+          <button class="show-done-btn" id="showDoneBtn" onclick="toggleShowDone()">Hide completed</button>
+        </div>
+
+        <!-- Task list -->
+        <div class="tasks-list" id="tasksList"></div>
+
       </div>
+    </div><!-- /pageTasks -->
 
-      <div class="panel-body">
-        <!-- Articles (main) -->
-        <div class="panel-main">
-          <div class="ai-articles" id="aiNewsList">
-            <div class="loading-msg">Loading AI articles…</div>
+    <!-- ══ NOTES tab ════════════════════════════════════════════════════ -->
+    <div class="page-view" id="pageNotes">
+      <div class="notes-layout">
+
+        <!-- Main editor area -->
+        <div class="notes-main">
+          <div class="notes-empty-state" id="notesEmpty">
+            <p>Select a note from the list →<br/>or press <kbd>+</kbd> to create one.</p>
+          </div>
+          <div class="note-editor" id="noteEditor" style="display:none">
+            <div class="note-editor-topbar">
+              <input class="note-title-field" id="noteTitleField" placeholder="Note title…"
+                     oninput="onNoteTitleChange()"/>
+              <div class="note-mode-btns">
+                <button class="mode-btn active" id="editModeBtn" onclick="setNoteMode('edit')">Edit</button>
+                <button class="mode-btn" id="previewModeBtn" onclick="setNoteMode('preview')">Preview</button>
+              </div>
+              <button class="note-delete-btn" onclick="deleteCurrentNote()" title="Delete note">🗑</button>
+            </div>
+            <textarea class="note-textarea" id="noteTextarea"
+                      placeholder="Write markdown here…" oninput="onNoteBodyChange()"></textarea>
+            <div class="note-preview markdown-body" id="notePreview" style="display:none"></div>
           </div>
         </div>
 
-        <!-- Right sidebar: Trending Topics -->
-        <aside class="panel-sidebar">
-          <div class="panel-sidebar-header">
-            <span class="section-label">TRENDING TOPICS</span>
-            <button class="tag-clear-btn" id="tagClearBtn" onclick="clearTagFilter()" style="display:none">✕ clear</button>
+        <!-- Right sidebar: note list -->
+        <aside class="notes-sidebar">
+          <div class="notes-sidebar-hdr">
+            <span class="section-label">NOTES</span>
+            <button class="icon-btn" onclick="createNote()" title="New note">+</button>
           </div>
-          <div class="tag-cloud sidebar-tag-cloud" id="tagCloud"></div>
+          <div class="notes-list" id="notesList"></div>
         </aside>
-      </div>
-    </div><!-- /pageAi -->
 
-    <!-- ══ STOCKS tab ══════════════════════════════════════════════ -->
-    <div class="page-view" id="pageStocks">
-      <div class="panel-page-header">
-        <span class="section-label">TRENDING STOCKS</span>
-        <div class="panel-page-actions">
-          <select class="source-dropdown" id="stocksSourceDropdown" onchange="filterStocksBySource(this.value)" title="Filter by source">
-            <option value="">All sources</option>
-            <option value="x.com">𝕏 X.com / StockTwits</option>
-            <option value="stocks">r/stocks</option>
-            <option value="wallstreetbets">r/wallstreetbets</option>
-            <option value="options">r/options</option>
-            <option value="coveredcalls">r/coveredcalls</option>
-            <option value="daytrading">r/daytrading</option>
-            <option value="stockstobuytoday">r/stockstobuytoday</option>
-            <option value="valueinvesting">r/valueinvesting</option>
-            <option value="dividends">r/dividends</option>
-          </select>
-          <button class="icon-btn" onclick="loadStocksPanel(true)" title="Refresh">↺</button>
-        </div>
       </div>
-
-      <div class="panel-body">
-        <!-- Main: posts -->
-        <div class="panel-main">
-          <div class="stocks-posts" id="stocksPostsList">
-            <div class="loading-msg">Loading posts…</div>
-          </div>
-        </div>
-
-        <!-- Right sidebar: Trending Up (top) + Trending Down (bottom) -->
-        <aside class="panel-sidebar">
-          <div class="sidebar-half sidebar-half-up">
-            <div class="section-label">📈 TRENDING UP</div>
-            <div class="sidebar-sent-list" id="stocksSentimentUp"></div>
-          </div>
-          <div class="sidebar-half sidebar-half-down">
-            <div class="section-label">📉 TRENDING DOWN</div>
-            <div class="sidebar-sent-list" id="stocksSentimentDown"></div>
-          </div>
-        </aside>
-      </div>
-    </div><!-- /pageStocks -->
+    </div><!-- /pageNotes -->
 
   </div><!-- /main-layout -->
 
+  <!-- ── Settings modal ─────────────────────────────────────────────── -->
+  <div class="settings-overlay" id="settingsOverlay">
+    <div class="settings-modal">
+      <div class="settings-header">
+        <span>⚙ Sync Settings</span>
+        <button class="settings-close-btn" onclick="closeSettings()">✕</button>
+      </div>
+      <p class="settings-note">Enter your GitHub PAT (gist scope). It is saved only in this browser, never in the source repo.</p>
+      <label class="settings-label">GitHub Personal Access Token</label>
+      <input type="password" id="settingsToken" class="settings-input" placeholder="ghp_…" autocomplete="off"/>
+      <label class="settings-label">Gist ID <span class="settings-hint">(leave blank — auto-created on first save)</span></label>
+      <input type="text" id="settingsGistId" class="settings-input" placeholder="auto-created"/>
+      <div class="settings-status" id="settingsStatus"></div>
+      <div class="settings-actions">
+        <button class="settings-save-btn" onclick="saveSettings()">Save &amp; Sync</button>
+        <button class="settings-cancel-btn" onclick="closeSettings()">Cancel</button>
+      </div>
+    </div>
+  </div>
+
+  <script src="https://cdn.jsdelivr.net/npm/marked@15/marked.min.js"></script>
   <script src="script.js"></script>
 </body>
 </html>

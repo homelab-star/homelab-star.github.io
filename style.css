@@ -25,7 +25,6 @@
   --header-bg:   #0f1629;
   --header-border: #1e2b45;
   --sidebar-w:   180px;
-  --panel-w:     40%;
   --radius:      10px;
   --radius-sm:   6px;
   --card-shadow: 0 1px 4px rgba(0,0,0,.08), 0 6px 20px rgba(0,0,0,.06);
@@ -135,24 +134,6 @@ button { font-family: var(--font); cursor: pointer; }
   letter-spacing: .02em;
 }
 
-.ai-toggle-btn {
-  background: rgba(255,255,255,.08);
-  border: 1px solid rgba(255,255,255,.14);
-  color: rgba(255,255,255,.55);
-  font-size: .78rem;
-  letter-spacing: .08em;
-  padding: 6px 14px;
-  border-radius: var(--radius);
-  transition: all .2s;
-}
-.ai-toggle-btn:hover { color: #fff; border-color: rgba(255,255,255,.3); background: rgba(255,255,255,.14); }
-.ai-toggle-btn.active {
-  background: var(--accent);
-  color: #fff;
-  border-color: var(--accent);
-  font-weight: 600;
-}
-
 /* ── Font size control — segmented control ────────────────────────── */
 .font-ctrl {
   display: flex;
@@ -184,6 +165,22 @@ button { font-family: var(--font); cursor: pointer; }
 }
 .font-btn:first-child { border-right: 1px solid rgba(255,255,255,.12); }
 .font-btn:hover { color: #fff; background: var(--accent); }
+
+/* ── Settings button ──────────────────────────────────────────────── */
+.settings-btn {
+  background: rgba(255,255,255,.08);
+  border: 1px solid rgba(255,255,255,.15);
+  color: rgba(255,255,255,.6);
+  width: 32px;
+  height: 32px;
+  border-radius: 8px;
+  font-size: .9rem;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  transition: background .15s, color .15s;
+}
+.settings-btn:hover { background: rgba(255,255,255,.16); color: #fff; }
 
 /* ── Clear cache button ───────────────────────────────────────────── */
 .clear-cache-btn {
@@ -241,9 +238,9 @@ button { font-family: var(--font); cursor: pointer; }
 /* Home: sidebar left, scrollable center right */
 #pageHome { flex-direction: row; align-items: stretch; }
 
-/* AI / Stocks: single full-height column */
-#pageAi,
-#pageStocks { flex-direction: column; }
+/* Tasks / Notes: full-height column containers */
+#pageTasks,
+#pageNotes { flex-direction: column; }
 
 /* ── Sidebar ──────────────────────────────────────────────────────── */
 .sidebar {
@@ -444,7 +441,7 @@ button { font-family: var(--font); cursor: pointer; }
 /* ── Tab Body ─────────────────────────────────────────────────────── */
 .tab-body { padding-top: 4px; }
 
-/* ── News Items (legacy list layout — kept for AI/other contexts) ── */
+/* ── News Items (legacy list layout) ─────────────────────────────── */
 .news-item {
   display: flex;
   gap: 10px;
@@ -453,31 +450,6 @@ button { font-family: var(--font); cursor: pointer; }
   border-bottom: 1px solid var(--border);
 }
 .news-item:last-child { border-bottom: none; }
-
-.news-thumb-wrap {
-  flex-shrink: 0;
-  width: 76px;
-  height: 52px;
-  border-radius: 3px;
-  overflow: hidden;
-  border: 1px solid var(--border);
-  background: var(--bg3);
-}
-.news-thumb {
-  width: 100%;
-  height: 100%;
-  object-fit: cover;
-  display: block;
-}
-
-.news-thumb-placeholder {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  background: var(--bg3);
-  font-size: 1.6rem;
-}
-.thumb-sport-icon { line-height: 1; user-select: none; }
 
 .news-body { flex: 1; min-width: 0; }
 
@@ -633,102 +605,7 @@ button { font-family: var(--font); cursor: pointer; }
   background: rgba(79,70,229,.05);
 }
 
-/* ── Panel page header (AI News + Stocks tabs) ────────────────────── */
-.panel-page-header {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  padding: 14px 24px 12px;
-  border-bottom: 1px solid var(--border);
-  background: var(--bg2);
-  flex-shrink: 0;
-}
-.panel-page-header .section-label { margin-bottom: 0; font-size: .75rem; color: var(--text2); }
-.panel-page-actions { display: flex; align-items: center; gap: 8px; }
-
-/* ── Panel body: main content + right sidebar ─────────────────────── */
-.panel-body {
-  display: flex;
-  flex: 1;
-  min-height: 0;
-  overflow: hidden;
-}
-.panel-main {
-  flex: 1;
-  min-width: 0;
-  display: flex;
-  flex-direction: column;
-  overflow: hidden;
-}
-
-/* Right sidebar (AI topics / Stocks sentiment) */
-.panel-sidebar {
-  width: 200px;
-  flex-shrink: 0;
-  border-left: 1px solid var(--border);
-  display: flex;
-  flex-direction: column;
-  overflow: hidden;
-  background: var(--bg2);
-}
-.panel-sidebar-header {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  padding: 12px 14px 10px;
-  border-bottom: 1px solid var(--border);
-  flex-shrink: 0;
-  background: var(--bg2);
-}
-.panel-sidebar-header .section-label { margin-bottom: 0; }
-
-/* Tag cloud inside sidebar — wrapping pills, scrollable */
-.sidebar-tag-cloud {
-  flex: 1;
-  overflow-y: auto;
-  padding: 10px 12px;
-  display: flex;
-  flex-wrap: wrap;
-  gap: 6px;
-  align-content: flex-start;
-}
-
-/* Stocks sidebar halves */
-.sidebar-half {
-  flex: 1;
-  min-height: 0;
-  overflow-y: auto;
-  display: flex;
-  flex-direction: column;
-  padding: 10px 14px 12px;
-}
-.sidebar-half + .sidebar-half {
-  border-top: 1px solid var(--border2);
-}
-.sidebar-half .section-label { margin-bottom: 6px; }
-
-.sidebar-sent-list { display: flex; flex-direction: column; gap: 1px; }
-
-/* Source filter dropdown in panel headers */
-.source-dropdown {
-  background: var(--bg3);
-  border: 1px solid var(--border2);
-  color: var(--text2);
-  font-family: inherit;
-  font-size: .76rem;
-  font-weight: 500;
-  padding: 6px 10px;
-  height: 32px;
-  border-radius: 7px;
-  cursor: pointer;
-  max-width: 150px;
-  outline: none;
-  transition: border-color .15s, color .15s, background .15s;
-}
-.source-dropdown:hover,
-.source-dropdown:focus { border-color: var(--accent); color: var(--text); background: var(--bg2); }
-.source-dropdown option { background: var(--bg2); color: var(--text); }
-
+/* ── Icon button (used in notes sidebar) ─────────────────────────── */
 .icon-btn {
   background: var(--bg3);
   border: 1px solid var(--border2);
@@ -745,359 +622,661 @@ button { font-family: var(--font); cursor: pointer; }
   transition: color .15s, background .15s, border-color .15s;
 }
 .icon-btn:hover { background: var(--accent); color: #fff; border-color: var(--accent); }
-.close-btn:hover { color: var(--red); }
 
-/* Scrollable articles list */
-.ai-articles {
-  flex: 1;
-  overflow-y: auto;
-  padding: 10px 24px;
+/* ════════════════════════════════════════════════════════════════════
+   SETTINGS MODAL
+════════════════════════════════════════════════════════════════════ */
+.settings-overlay {
+  display: none;
+  position: fixed;
+  inset: 0;
+  background: rgba(0,0,0,.45);
+  z-index: 200;
+  align-items: center;
+  justify-content: center;
 }
 
-.ai-news-item {
+.settings-modal {
+  background: var(--bg2);
+  border-radius: var(--radius);
+  border: 1px solid var(--border);
+  padding: 24px 28px;
+  width: 420px;
+  max-width: calc(100vw - 32px);
+  box-shadow: 0 8px 40px rgba(0,0,0,.2);
   display: flex;
-  gap: 11px;
-  padding: 8px 0;
-  border-bottom: 1px solid var(--border);
-  transition: opacity .2s;
-}
-.ai-news-item:last-child { border-bottom: none; }
-.ai-news-item.dimmed { opacity: .22; }
-
-.ai-num {
-  font-family: var(--font-mono);
-  font-size: .68rem;
-  color: var(--text3);
-  min-width: 22px;
-  padding-top: 2px;
-  flex-shrink: 0;
+  flex-direction: column;
+  gap: 10px;
 }
 
-.ai-body { flex: 1; min-width: 0; }
+.settings-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 4px;
+  font-size: .9rem;
+  font-weight: 700;
+  color: var(--text);
+  letter-spacing: .02em;
+}
 
-/* .ai-tags-section kept for legacy compatibility but not shown in layout */
-.ai-tags-section { display: none; }
-
-.tag-clear-btn {
+.settings-close-btn {
   background: transparent;
   border: 1px solid var(--border2);
   color: var(--text3);
-  font-size: .65rem;
-  padding: 1px 7px;
-  border-radius: 3px;
-  font-family: var(--font);
-  transition: all .15s;
-  letter-spacing: .05em;
-}
-.tag-clear-btn:hover { color: var(--text); border-color: var(--text2); }
-
-.tag-cloud {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 6px;
-  align-items: center;
-}
-
-/* ── Tag pills — shared base ──────────────────────────────────────── */
-.tag {
+  width: 26px;
+  height: 26px;
+  border-radius: 5px;
+  font-size: .72rem;
   display: inline-flex;
   align-items: center;
-  font-size: .72rem;
-  font-weight: 500;
-  letter-spacing: .04em;
-  padding: 3px 10px;
-  border-radius: 20px;
-  border: 1px solid transparent;
-  cursor: pointer;
-  user-select: none;
-  white-space: nowrap;
-  transition: background .15s, color .15s, border-color .15s;
-  line-height: 1.4;
+  justify-content: center;
+  transition: color .12s, background .12s;
+}
+.settings-close-btn:hover { background: rgba(214,53,53,.1); color: var(--red); border-color: var(--red); }
+
+.settings-note {
+  font-size: .8rem;
+  color: var(--text3);
+  line-height: 1.5;
+  margin-bottom: 2px;
 }
 
-/* topic tags — warm amber (what's happening) */
-.tag-topic {
-  color: var(--accent-dim);
+.settings-label {
+  font-size: .78rem;
+  font-weight: 600;
+  color: var(--text2);
+  display: block;
+}
+
+.settings-hint {
+  font-weight: 400;
+  color: var(--text3);
+  font-size: .72rem;
+}
+
+.settings-input {
+  width: 100%;
+  padding: 9px 12px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  font-family: var(--font-mono);
+  font-size: .84rem;
+  background: var(--bg);
+  color: var(--text);
+  outline: none;
+  transition: border-color .15s;
+}
+.settings-input:focus { border-color: var(--accent); box-shadow: 0 0 0 3px rgba(79,70,229,.12); }
+
+.settings-status {
+  font-size: .78rem;
+  color: var(--text3);
+  min-height: 1.2em;
+}
+
+.settings-actions {
+  display: flex;
+  gap: 10px;
+  margin-top: 4px;
+}
+
+.settings-save-btn {
+  background: var(--accent);
+  color: #fff;
+  border: none;
+  border-radius: var(--radius-sm);
+  padding: 9px 20px;
+  font-size: .84rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: background .15s;
+}
+.settings-save-btn:hover { background: var(--accent-dim); }
+
+.settings-cancel-btn {
   background: transparent;
-  border-color: var(--accent-dim);
+  border: 1px solid var(--border2);
+  border-radius: var(--radius-sm);
+  padding: 9px 16px;
+  font-size: .84rem;
+  color: var(--text2);
+  cursor: pointer;
+  transition: border-color .15s, color .15s;
 }
-.tag-topic:hover {
-  color: var(--bg);
-  background: var(--accent-dim);
-  border-color: var(--accent-dim);
+.settings-cancel-btn:hover { border-color: var(--text2); color: var(--text); }
+
+/* ════════════════════════════════════════════════════════════════════
+   TASKS
+════════════════════════════════════════════════════════════════════ */
+.tasks-page {
+  height: 100%;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  flex: 1;
 }
-.tag-topic.selected {
-  color: var(--bg);
+
+.tasks-topbar {
+  padding: 16px 20px 0;
+  flex-shrink: 0;
+}
+
+.tasks-add-row { position: relative; }
+
+.task-add-input {
+  width: 100%;
+  padding: 10px 14px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  font-family: var(--font);
+  font-size: .9rem;
+  background: var(--bg2);
+  color: var(--text);
+  outline: none;
+  transition: border-color .15s, box-shadow .15s;
+}
+.task-add-input:focus {
+  border-color: var(--accent);
+  box-shadow: 0 0 0 3px rgba(79,70,229,.12);
+}
+
+.task-form-expanded {
+  flex-direction: column;
+  gap: 8px;
+  padding: 10px 0 6px;
+}
+
+.task-form-row {
+  display: flex;
+  gap: 8px;
+  align-items: flex-start;
+}
+.task-form-row .task-date-input { flex-shrink: 0; }
+.task-form-row .task-desc-input { flex: 1; }
+
+.task-form-btns { display: flex; gap: 8px; }
+
+.task-date-input,
+.task-desc-input {
+  padding: 8px 10px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  font-family: var(--font);
+  font-size: .84rem;
+  background: var(--bg2);
+  color: var(--text);
+  outline: none;
+  transition: border-color .15s;
+}
+.task-date-input:focus,
+.task-desc-input:focus { border-color: var(--accent); }
+.task-desc-input { resize: vertical; }
+
+.task-save-btn {
+  background: var(--accent);
+  color: #fff;
+  border: none;
+  border-radius: var(--radius-sm);
+  padding: 7px 18px;
+  font-size: .82rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: background .15s;
+}
+.task-save-btn:hover { background: var(--accent-dim); }
+
+.task-cancel-btn {
+  background: transparent;
+  border: 1px solid var(--border2);
+  border-radius: var(--radius-sm);
+  padding: 7px 14px;
+  font-size: .82rem;
+  color: var(--text2);
+  cursor: pointer;
+  transition: border-color .15s, color .15s;
+}
+.task-cancel-btn:hover { border-color: var(--text2); color: var(--text); }
+
+.tasks-filterbar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 10px 20px 6px;
+  flex-shrink: 0;
+}
+
+.tasks-count {
+  font-size: .74rem;
+  color: var(--text3);
+  font-family: var(--font-mono);
+}
+
+.show-done-btn {
+  font-size: .73rem;
+  color: var(--text3);
+  background: transparent;
+  border: 1px solid var(--border);
+  border-radius: 5px;
+  padding: 3px 10px;
+  cursor: pointer;
+  transition: color .12s, border-color .12s;
+}
+.show-done-btn:hover { color: var(--accent); border-color: var(--accent); }
+
+.tasks-list {
+  flex: 1;
+  overflow-y: auto;
+  padding: 4px 20px 20px;
+}
+
+.tasks-empty {
+  padding: 32px 0;
+  text-align: center;
+  color: var(--text3);
+  font-size: .85rem;
+}
+
+/* ── Individual task item ─────────────────────────────────────────── */
+.task-item {
+  background: var(--bg2);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  padding: 10px 14px;
+  margin-bottom: 7px;
+  box-shadow: 0 1px 3px rgba(0,0,0,.04);
+  transition: border-color .15s;
+}
+.task-item:hover { border-color: var(--border2); }
+.task-item.done { opacity: .6; }
+
+.task-main-row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.task-check {
+  background: transparent;
+  border: 2px solid var(--border2);
+  border-radius: 4px;
+  width: 18px;
+  height: 18px;
+  flex-shrink: 0;
+  cursor: pointer;
+  font-size: .65rem;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: transparent;
+  transition: all .12s;
+  padding: 0;
+}
+.task-check:hover { border-color: var(--accent); }
+.task-check.done {
   background: var(--accent);
   border-color: var(--accent);
-  font-weight: 600;
-}
-
-/* entity tags — cooler blue-gray (who's involved) */
-.tag-entity {
-  color: var(--text2);
-  background: transparent;
-  border-color: var(--border2);
-}
-.tag-entity:hover {
-  color: var(--text);
-  background: var(--bg2);
-  border-color: var(--text2);
-}
-.tag-entity.selected {
-  color: var(--text);
-  background: var(--bg2);
-  border-color: var(--text);
-  font-weight: 600;
-}
-
-/* light theme overrides for entity tags */
-html[data-theme="light"] .tag-entity { color: var(--text3); border-color: var(--border); }
-html[data-theme="light"] .tag-entity:hover  { color: var(--text2); border-color: var(--border2); }
-html[data-theme="light"] .tag-entity.selected { color: var(--text); border-color: var(--text2); }
-
-.tag-separator {
-  color: var(--border2);
-  font-size: .7rem;
-  cursor: default;
-  align-self: center;
-  letter-spacing: .1em;
-  padding: 0 2px;
-  user-select: none;
-}
-
-/* ── Stocks toggle button ─────────────────────────────────────────── */
-.stocks-toggle-btn {
-  background: transparent;
-  border: 1px solid var(--border2);
-  color: var(--text2);
-  font-size: .78rem;
-  letter-spacing: .08em;
-  padding: 5px 13px;
-  border-radius: var(--radius);
-  font-family: var(--font);
-  transition: all .2s;
-  cursor: pointer;
-}
-.stocks-toggle-btn:hover { color: var(--green); border-color: var(--green); }
-.stocks-toggle-btn.active {
-  background: var(--green-dim);
   color: #fff;
-  border-color: var(--green-dim);
-  font-weight: 600;
 }
 
-/* ── Stocks panel header — kept for any remaining direct references ── */
-.stocks-panel-header-actions { display: flex; align-items: center; gap: 8px; }
-
-.ticker-cloud {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 6px;
-  align-items: center;
-}
-
-/* Ticker pills — green */
-.ticker-pill {
-  display: inline-flex;
-  align-items: center;
-  font-family: var(--font-mono);
-  font-size: .72rem;
-  font-weight: 600;
-  letter-spacing: .04em;
-  padding: 3px 10px;
-  border-radius: 20px;
-  border: 1px solid var(--green-dim);
-  color: var(--green);
-  background: transparent;
-  cursor: pointer;
-  user-select: none;
-  white-space: nowrap;
-  transition: background .15s, color .15s, border-color .15s;
+.task-text {
+  flex: 1;
+  font-size: .9rem;
   line-height: 1.4;
 }
-.ticker-pill:hover {
-  background: var(--green-dim);
-  color: #fff;
-  border-color: var(--green-dim);
-}
-.ticker-pill.selected {
-  background: var(--green);
-  color: #fff;
-  border-color: var(--green);
-  font-weight: 700;
+.task-item.done .task-text {
+  text-decoration: line-through;
+  color: var(--text3);
 }
 
-/* X.com / StockTwits tickers — distinct colour (sky blue) */
-.ticker-pill-x {
-  border-color: #1d9bf0;
-  color: #1d9bf0;
+.task-item-actions {
+  display: flex;
+  gap: 4px;
+  opacity: 0;
+  transition: opacity .12s;
 }
-.ticker-pill-x:hover  { background: #1d9bf0; color: #fff; border-color: #1d9bf0; }
-.ticker-pill-x.selected { background: #1d9bf0; color: #fff; border-color: #1d9bf0; }
+.task-item:hover .task-item-actions { opacity: 1; }
 
-/* Mention badge inside pill */
-.ticker-count {
-  font-size: .6rem;
-  font-weight: 400;
-  opacity: .75;
-  margin-left: 4px;
-}
-
-/* Sentiment section now lives in .panel-sidebar; keep minimal fallback */
-.sentiment-col { display: flex; flex-direction: column; gap: 3px; }
-
-.sent-row {
+.task-edit-btn,
+.task-del-btn {
+  background: var(--bg3);
+  border: 1px solid var(--border);
+  border-radius: 4px;
+  width: 26px;
+  height: 26px;
+  font-size: .74rem;
+  cursor: pointer;
   display: flex;
   align-items: center;
-  gap: 5px;
-  padding: 3px 7px;
-  border-radius: 4px;
+  justify-content: center;
+  color: var(--text3);
+  padding: 0;
+  transition: all .12s;
+}
+.task-edit-btn:hover { background: rgba(79,70,229,.08); border-color: var(--accent); color: var(--accent); }
+.task-del-btn:hover  { background: rgba(214,53,53,.08); border-color: var(--red); color: var(--red); }
+
+.task-meta-row {
+  display: flex;
+  gap: 10px;
+  align-items: center;
+  margin-top: 5px;
+  padding-left: 28px;
+  flex-wrap: wrap;
+}
+
+.task-due-chip {
+  font-size: .72rem;
+  color: var(--text3);
+  font-family: var(--font-mono);
+}
+.task-due-chip.overdue  { color: var(--red);    font-weight: 600; }
+.task-due-chip.today    { color: var(--accent);  font-weight: 600; }
+.task-due-chip.upcoming { color: var(--text3); }
+
+.task-desc-preview {
+  font-size: .72rem;
+  color: var(--text3);
+  flex: 1;
+  min-width: 0;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.task-edit-panel {
+  margin-top: 10px;
+  padding-top: 10px;
+  border-top: 1px solid var(--border);
+  flex-direction: column;
+  gap: 8px;
+}
+
+/* ════════════════════════════════════════════════════════════════════
+   NOTES
+════════════════════════════════════════════════════════════════════ */
+
+/* Full-height two-column layout */
+.notes-layout {
+  display: flex;
+  flex: 1;
+  height: 100%;
+  overflow: hidden;
+  flex-direction: row-reverse;
+}
+
+/* ── Right sidebar ────────────────────────────────────────────────── */
+.notes-sidebar {
+  width: 220px;
+  flex-shrink: 0;
+  border-left: 1px solid var(--border);
+  background: var(--bg2);
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}
+
+.notes-sidebar-hdr {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 12px 14px;
+  border-bottom: 1px solid var(--border);
+  flex-shrink: 0;
+}
+.notes-sidebar-hdr .section-label { margin-bottom: 0; }
+
+.notes-list { flex: 1; overflow-y: auto; }
+
+.notes-list-empty {
+  padding: 20px 14px;
+  font-size: .8rem;
+  color: var(--text3);
+  text-align: center;
+}
+
+.note-list-item {
+  padding: 11px 14px;
+  border-bottom: 1px solid var(--border);
   cursor: pointer;
   transition: background .12s;
-  border: 1px solid transparent;
 }
-.sent-row:hover   { background: var(--bg3); }
-.sent-row.selected { border-color: var(--border2); background: var(--bg3); }
+.note-list-item:hover { background: var(--bg3); }
+.note-list-item.active {
+  background: rgba(79,70,229,.07);
+  border-left: 3px solid var(--accent);
+  padding-left: 11px;
+}
 
-.sent-arrow {
-  font-size: .8rem;
-  flex-shrink: 0;
-  width: 12px;
-}
-.sent-ticker {
-  font-size: .78rem;
+.note-list-title {
+  font-size: .84rem;
   font-weight: 600;
-  flex: 1;
-  letter-spacing: .03em;
+  color: var(--text);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
-.sent-score {
-  font-family: var(--font-mono);
-  font-size: .62rem;
-  color: var(--text3);
-  flex-shrink: 0;
-}
-.sent-price {
-  font-family: var(--font-mono);
-  font-size: .7rem;
-  color: var(--text2);
-  flex-shrink: 0;
-  margin-left: auto;
-  padding-right: 4px;
-}
-.sent-pct {
-  font-family: var(--font-mono);
-  font-size: .68rem;
-  font-weight: 600;
-  flex-shrink: 0;
-  min-width: 46px;
-  text-align: right;
-}
-.sent-pct.pos { color: var(--green); }
-.sent-pct.neg { color: var(--red); }
 
-/* Bullish (up) rows */
-.sent-up .sent-arrow  { color: var(--green); }
-.sent-up .sent-ticker { color: var(--green); }
-.sent-up:hover        { background: rgba(26,154,85,.07); }
-.sent-up.selected     { border-color: var(--green-dim); background: rgba(26,154,85,.1); }
-
-/* Bearish (down) rows */
-.sent-down .sent-arrow  { color: var(--red); }
-.sent-down .sent-ticker { color: var(--red); }
-.sent-down:hover        { background: rgba(214,53,53,.07); }
-.sent-down.selected     { border-color: var(--red); background: rgba(214,53,53,.1); }
-
-.sentiment-empty {
+.note-list-preview {
   font-size: .72rem;
   color: var(--text3);
-  padding: 2px 0;
+  margin-top: 2px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 
-/* Scrollable posts list */
-.stocks-posts {
+.note-list-date {
+  font-size: .65rem;
+  color: var(--text3);
+  margin-top: 3px;
+  font-family: var(--font-mono);
+}
+
+/* ── Main editor area ─────────────────────────────────────────────── */
+.notes-main {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}
+
+.notes-empty-state {
+  flex: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: var(--text3);
+  font-size: .9rem;
+  text-align: center;
+  line-height: 1.7;
+}
+.notes-empty-state kbd {
+  background: var(--bg3);
+  border: 1px solid var(--border2);
+  border-radius: 4px;
+  padding: 1px 6px;
+  font-family: var(--font-mono);
+  font-size: .8em;
+  color: var(--text2);
+}
+
+.note-editor {
+  flex: 1;
+  min-height: 0;
+  flex-direction: column;
+}
+
+.note-editor-topbar {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 12px 20px;
+  border-bottom: 1px solid var(--border);
+  flex-shrink: 0;
+  background: var(--bg2);
+}
+
+.note-title-field {
+  flex: 1;
+  font-size: 1.05rem;
+  font-weight: 600;
+  border: none;
+  background: transparent;
+  color: var(--text);
+  font-family: var(--font);
+  outline: none;
+}
+
+.note-mode-btns {
+  display: flex;
+  background: var(--bg3);
+  border: 1px solid var(--border);
+  border-radius: 7px;
+  overflow: hidden;
+  flex-shrink: 0;
+}
+
+.mode-btn {
+  background: transparent;
+  border: none;
+  padding: 5px 13px;
+  font-size: .74rem;
+  font-weight: 600;
+  cursor: pointer;
+  color: var(--text3);
+  letter-spacing: .04em;
+  transition: background .12s, color .12s;
+}
+.mode-btn.active {
+  background: var(--bg2);
+  color: var(--accent);
+  box-shadow: 0 1px 3px rgba(0,0,0,.08);
+}
+
+.note-delete-btn {
+  background: transparent;
+  border: 1px solid transparent;
+  border-radius: 6px;
+  padding: 4px 8px;
+  font-size: .85rem;
+  cursor: pointer;
+  color: var(--text3);
+  flex-shrink: 0;
+  transition: all .12s;
+}
+.note-delete-btn:hover {
+  color: var(--red);
+  border-color: var(--red);
+  background: rgba(214,53,53,.08);
+}
+
+.note-textarea {
+  flex: 1;
+  padding: 20px 24px;
+  border: none;
+  outline: none;
+  resize: none;
+  font-family: var(--font-mono);
+  font-size: .9rem;
+  line-height: 1.7;
+  color: var(--text);
+  background: var(--bg);
+}
+
+.note-preview {
   flex: 1;
   overflow-y: auto;
-  padding: 10px 24px;
+  padding: 20px 24px;
+  background: var(--bg2);
 }
 
-/* Individual stock post */
-.stock-post-item {
-  padding: 9px 0;
-  border-bottom: 1px solid var(--border);
-}
-.stock-post-item:last-child { border-bottom: none; }
-
-.stock-post-top {
-  display: flex;
-  align-items: baseline;
-  gap: 8px;
-  margin-bottom: 3px;
-}
-
-.stock-subreddit {
-  font-size: .65rem;
-  color: var(--green);
-  font-weight: 600;
-  letter-spacing: .04em;
-  flex-shrink: 0;
-}
-
-.stock-score {
-  font-size: .65rem;
-  color: var(--text3);
-  flex-shrink: 0;
-}
-
-.stock-post-title {
-  display: block;
-  font-size: .88rem;
-  line-height: 1.42;
-  margin-bottom: 3px;
-  color: var(--accent);
-}
-.stock-post-title:hover { color: var(--accent-hi); text-decoration: underline; }
-
-.stock-post-meta {
+/* ── Markdown rendered content ────────────────────────────────────── */
+.markdown-body h1,
+.markdown-body h2,
+.markdown-body h3 { font-weight: 700; margin: 1.2em 0 .5em; line-height: 1.3; }
+.markdown-body h1 { font-size: 1.5rem; }
+.markdown-body h2 { font-size: 1.2rem; }
+.markdown-body h3 { font-size: 1rem; }
+.markdown-body p  { margin-bottom: .9em; line-height: 1.7; }
+.markdown-body ul,
+.markdown-body ol { padding-left: 1.5em; margin-bottom: .9em; }
+.markdown-body li { margin-bottom: .3em; }
+.markdown-body code {
+  background: var(--bg3);
+  border: 1px solid var(--border);
+  border-radius: 3px;
+  padding: 1px 5px;
   font-family: var(--font-mono);
-  font-size: .72rem;
-  color: var(--text3);
+  font-size: .85em;
 }
+.markdown-body pre {
+  background: var(--bg3);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  padding: 12px 16px;
+  overflow-x: auto;
+  margin-bottom: .9em;
+}
+.markdown-body pre code { background: none; border: none; padding: 0; }
+.markdown-body blockquote {
+  border-left: 3px solid var(--accent);
+  padding-left: 14px;
+  color: var(--text2);
+  margin: 0 0 .9em;
+  font-style: italic;
+}
+.markdown-body a    { color: var(--link); }
+.markdown-body strong { font-weight: 700; }
+.markdown-body hr {
+  border: none;
+  border-top: 1px solid var(--border);
+  margin: 1.5em 0;
+}
+.markdown-body table {
+  border-collapse: collapse;
+  width: 100%;
+  margin-bottom: .9em;
+  font-size: .88rem;
+}
+.markdown-body th,
+.markdown-body td {
+  border: 1px solid var(--border);
+  padding: 6px 10px;
+  text-align: left;
+}
+.markdown-body th { background: var(--bg3); font-weight: 600; }
 
 /* ── Responsive tweaks ────────────────────────────────────────────── */
 @media (max-width: 860px) {
-  /* Full height tab views stack as columns on mobile */
   .main-layout { height: auto; overflow: visible; }
   .page-view.active { flex: none; width: 100%; }
 
   #pageHome { flex-direction: column; }
 
-  /* AI / Stocks pages: full viewport height with internal scroll */
-  #pageAi,
-  #pageStocks { height: calc(100vh - var(--header-h)); }
+  #pageTasks,
+  #pageNotes { height: calc(100vh - var(--header-h)); }
 
-  /* Tighter center padding on tablets/phones */
   .center { padding: 12px 14px; }
 
-  /* Tabs scroll horizontally instead of wrapping — essential for 7-tab reddit row */
   .tabs {
     overflow-x: auto;
     flex-wrap: nowrap;
     -webkit-overflow-scrolling: touch;
-    scrollbar-width: none;          /* Firefox */
+    scrollbar-width: none;
   }
-  .tabs::-webkit-scrollbar { display: none; }  /* Chrome/Safari */
+  .tabs::-webkit-scrollbar { display: none; }
   .tab { flex-shrink: 0; }
 
-  /* On mobile the sidebar stacks below main content */
-  .panel-body { flex-direction: column; }
-  .panel-sidebar {
+  /* Notes: stack sidebar below editor on mobile */
+  .notes-layout { flex-direction: column; }
+  .notes-sidebar {
     width: 100%;
     border-left: none;
     border-top: 1px solid var(--border);
     max-height: 38vh;
   }
-  .sidebar-half { max-height: 20vh; }
 
   /* Bookmarks sidebar: full-width collapsible strip */
   .sidebar {
@@ -1108,15 +1287,11 @@ html[data-theme="light"] .tag-entity.selected { color: var(--text); border-color
     padding: 10px 14px 12px;
     box-shadow: none;
   }
-
-  /* Show the collapse toggle on mobile */
   .sidebar-toggle { display: flex; align-items: center; justify-content: center; }
 
-  /* Collapsed: zero-height with smooth animation */
   .sidebar-content { max-height: 400px; }
   .sidebar-content.collapsed { max-height: 0 !important; }
 
-  /* Bookmark links as horizontal scrolling pills */
   .bookmark-list {
     flex-direction: row;
     flex-wrap: wrap;
@@ -1132,7 +1307,7 @@ html[data-theme="light"] .tag-entity.selected { color: var(--text); border-color
     white-space: nowrap;
     background: var(--bg3);
     transition: color .15s, border-color .15s, background .15s;
-    min-height: 32px;              /* touch-friendly height */
+    min-height: 32px;
   }
   .bookmark-list a:hover {
     border-color: var(--accent);
@@ -1140,15 +1315,15 @@ html[data-theme="light"] .tag-entity.selected { color: var(--text); border-color
     background: var(--bg2);
   }
 
-  /* Nav links: bigger tap targets */
   .nav-link { padding: 6px 8px; font-size: .78rem; letter-spacing: .02em; }
   .main-nav { padding: 2px; gap: 1px; }
 
-  /* Panel page header: slightly tighter */
-  .panel-page-header { padding: 11px 16px 10px; }
-
-  /* Group titles stay readable */
   .bookmark-group-title { margin: 10px 0 4px; padding-top: 8px; }
+
+  /* Tasks: full padding adjustments */
+  .tasks-topbar { padding: 12px 14px 0; }
+  .tasks-list   { padding: 4px 14px 16px; }
+  .tasks-filterbar { padding: 8px 14px 4px; }
 }
 
 @media (max-width: 600px) {
@@ -1158,39 +1333,24 @@ html[data-theme="light"] .tag-entity.selected { color: var(--text); border-color
   .nav-link { padding: 5px 10px; font-size: .74rem; }
   .main-nav { padding: 2px; gap: 1px; }
 
-  /* Tabs: smaller labels, no gap */
   .tabs { gap: 0; }
   .tab { padding: 8px 10px; font-size: .68rem; min-height: 38px; }
 
-  /* Header: tighter */
   .header { padding: 0 10px; }
   .header-right { gap: 6px; }
 
-  /* Hide timer and A−/A+ buttons on small phones — save header space */
   .refresh-indicator { display: none; }
-  .font-ctrl { display: none; }
+  .font-ctrl        { display: none; }
 
-  /* Smaller thumbnails */
-  .news-thumb-wrap { width: 64px; height: 50px; }
-
-  /* Panel header: compact on phones */
-  .panel-page-header { padding: 9px 14px; }
-  .source-dropdown { max-width: 120px; font-size: .7rem; padding: 3px 5px; }
-
-  /* News/reddit items: tighter padding */
   .news-item { padding: 8px 0; }
   .reddit-item { padding: 7px 0; }
 
-  /* Show more button: full width, easy to tap */
   .show-more-btn { padding: 10px 0; font-size: .78rem; }
 
-  /* Stock posts */
-  .stocks-posts { padding: 8px 14px; }
-  .stock-post-item { padding: 8px 0; }
+  .note-textarea { padding: 14px 16px; }
+  .note-preview  { padding: 14px 16px; }
+  .note-editor-topbar { padding: 10px 14px; }
 
-  /* AI articles */
-  .ai-articles { padding: 8px 14px; }
-
-  /* Ticker pills: slightly larger touch area */
-  .ticker-pill { padding: 5px 12px; }
+  .tasks-topbar { padding: 10px 12px 0; }
+  .tasks-list   { padding: 4px 12px 14px; }
 }
