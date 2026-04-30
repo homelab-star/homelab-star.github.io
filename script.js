@@ -71,7 +71,7 @@ let countdown  = REFRESH_MS / 1000;
 let tasksData     = [];
 let notesData     = [];
 let activeNoteId  = null;
-let noteMode      = 'edit';
+let noteMode      = 'preview';
 let showDoneTasks = true;
 let tasksSyncTimer = null;
 let notesSyncTimer = null;
@@ -496,8 +496,8 @@ function renderTasks() {
   if (!el) return;
 
   const today   = new Date().toISOString().slice(0, 10);
-  const pending = tasksData.filter(t => !t.done);
-  const done    = tasksData.filter(t => t.done);
+  const pending = tasksData.filter(t => !t.done && !t.deleted);
+  const done    = tasksData.filter(t =>  t.done && !t.deleted);
 
   if (countEl) countEl.textContent = `${pending.length} pending · ${done.length} done`;
 
@@ -624,7 +624,10 @@ function toggleTaskDone(id) {
 }
 
 function deleteTask(id) {
-  tasksData = tasksData.filter(t => t.id !== id);
+  const task = tasksData.find(t => t.id === id);
+  if (!task) return;
+  task.deleted   = true;
+  task.updatedAt = new Date().toISOString();
   saveLocalTasks();
   queueTasksSync();
   renderTasks();
@@ -675,7 +678,7 @@ function formatDate(isoDate) {
 ════════════════════════════════════════════════════════════════════ */
 function initNotes() {
   renderNotesList();
-  if (activeNoteId && notesData.find(n => n.id === activeNoteId)) {
+  if (activeNoteId && notesData.find(n => n.id === activeNoteId && !n.deleted)) {
     selectNote(activeNoteId);
   }
 }
@@ -683,7 +686,7 @@ function initNotes() {
 function renderNotesList() {
   const el = document.getElementById('notesList');
   if (!el) return;
-  const sorted = [...notesData].sort((a, b) => b.updatedAt.localeCompare(a.updatedAt));
+  const sorted = [...notesData].filter(n => !n.deleted).sort((a, b) => b.updatedAt.localeCompare(a.updatedAt));
   if (!sorted.length) {
     el.innerHTML = '<div class="notes-list-empty">No notes yet</div>';
     return;
@@ -710,6 +713,7 @@ function createNote() {
   saveLocalNotes();
   renderNotesList();
   selectNote(note.id);
+  setNoteMode('edit');
   document.getElementById('noteTitleField')?.focus();
 }
 
@@ -728,7 +732,7 @@ function selectNote(id) {
   if (titleField) titleField.value = note.title || '';
   if (textarea)   textarea.value   = note.body  || '';
 
-  setNoteMode(noteMode);
+  setNoteMode('preview');
   renderNotesList();
 }
 
@@ -796,7 +800,8 @@ function renderPreview() {
 function deleteCurrentNote() {
   if (!activeNoteId) return;
   if (!confirm('Delete this note?')) return;
-  notesData    = notesData.filter(n => n.id !== activeNoteId);
+  const note = notesData.find(n => n.id === activeNoteId);
+  if (note) { note.deleted = true; note.updatedAt = new Date().toISOString(); }
   activeNoteId = null;
   saveLocalNotes();
   queueNotesSync();
@@ -909,6 +914,58 @@ function queueNotesSync() {
     const token = localStorage.getItem('dash_gh_token');
     if (token) pushNotes(token).catch(() => {});
   }, 2000);
+}
+
+async function syncTasks() {
+  const token = localStorage.getItem('dash_gh_token');
+  const btn   = document.getElementById('tasksSyncBtn');
+  if (!token) {
+    if (btn) { btn.textContent = '⚙'; setTimeout(() => { btn.textContent = '⟳'; }, 2000); }
+    return;
+  }
+  if (btn) { btn.textContent = '⏳'; btn.disabled = true; }
+  try {
+    const rt = await pullGist(token, GIST_TASKS_DESC, GIST_TASKS_FILE);
+    if (rt) { tasksData = mergeItems(tasksData, rt.tasks); saveLocalTasks(); }
+    await pushTasks(token);
+    renderTasks();
+    if (btn) { btn.textContent = '✓'; setTimeout(() => { btn.textContent = '⟳'; btn.disabled = false; }, 1500); }
+  } catch {
+    if (btn) { btn.textContent = '⚠'; setTimeout(() => { btn.textContent = '⟳'; btn.disabled = false; }, 2000); }
+  }
+}
+
+async function syncNotes() {
+  const token = localStorage.getItem('dash_gh_token');
+  const btn   = document.getElementById('notesSyncBtn');
+  if (!token) {
+    if (btn) { btn.textContent = '⚙'; setTimeout(() => { btn.textContent = '⟳'; }, 2000); }
+    return;
+  }
+  if (btn) { btn.textContent = '⏳'; btn.disabled = true; }
+  try {
+    const rn = await pullGist(token, GIST_NOTES_DESC, GIST_NOTES_FILE);
+    if (rn) { notesData = mergeItems(notesData, rn.notes); saveLocalNotes(); }
+    await pushNotes(token);
+    renderNotesList();
+    if (activeNoteId) {
+      const note = notesData.find(n => n.id === activeNoteId && !n.deleted);
+      if (note) {
+        const titleField = document.getElementById('noteTitleField');
+        const textarea   = document.getElementById('noteTextarea');
+        if (titleField) titleField.value = note.title || '';
+        if (textarea)   textarea.value   = note.body  || '';
+        if (noteMode === 'preview') renderPreview();
+      } else {
+        activeNoteId = null;
+        document.getElementById('notesEmpty').style.display = 'flex';
+        document.getElementById('noteEditor').style.display = 'none';
+      }
+    }
+    if (btn) { btn.textContent = '✓'; setTimeout(() => { btn.textContent = '⟳'; btn.disabled = false; }, 1500); }
+  } catch {
+    if (btn) { btn.textContent = '⚠'; setTimeout(() => { btn.textContent = '⟳'; btn.disabled = false; }, 2000); }
+  }
 }
 
 async function syncOnLoad() {

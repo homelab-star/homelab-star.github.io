@@ -151,7 +151,10 @@
         <!-- Filter bar -->
         <div class="tasks-filterbar">
           <span class="tasks-count" id="tasksCount"></span>
-          <button class="show-done-btn" id="showDoneBtn" onclick="toggleShowDone()">Hide completed</button>
+          <div class="filterbar-actions">
+            <button class="sync-btn" id="tasksSyncBtn" onclick="syncTasks()" title="Sync tasks now">⟳</button>
+            <button class="show-done-btn" id="showDoneBtn" onclick="toggleShowDone()">Hide completed</button>
+          </div>
         </div>
 
         <!-- Task list -->
@@ -189,7 +192,10 @@
         <aside class="notes-sidebar">
           <div class="notes-sidebar-hdr">
             <span class="section-label">NOTES</span>
-            <button class="icon-btn" onclick="createNote()" title="New note">+</button>
+            <div style="display:flex;gap:6px">
+              <button class="icon-btn" id="notesSyncBtn" onclick="syncNotes()" title="Sync notes now">⟳</button>
+              <button class="icon-btn" onclick="createNote()" title="New note">+</button>
+            </div>
           </div>
           <div class="notes-list" id="notesList"></div>
         </aside>

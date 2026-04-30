@@ -856,6 +856,8 @@ button { font-family: var(--font); cursor: pointer; }
   font-family: var(--font-mono);
 }
 
+.filterbar-actions { display: flex; align-items: center; gap: 6px; }
+
 .show-done-btn {
   font-size: .73rem;
   color: var(--text3);
@@ -867,6 +869,20 @@ button { font-family: var(--font); cursor: pointer; }
   transition: color .12s, border-color .12s;
 }
 .show-done-btn:hover { color: var(--accent); border-color: var(--accent); }
+
+.sync-btn {
+  font-size: .85rem;
+  color: var(--text3);
+  background: transparent;
+  border: 1px solid var(--border);
+  border-radius: 5px;
+  padding: 2px 7px;
+  cursor: pointer;
+  transition: color .12s, border-color .12s, transform .2s;
+  line-height: 1.4;
+}
+.sync-btn:hover { color: var(--accent); border-color: var(--accent); }
+.sync-btn:disabled { opacity: .5; cursor: default; }
 
 .tasks-list {
   flex: 1;
