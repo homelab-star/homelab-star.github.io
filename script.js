@@ -451,7 +451,8 @@ function initTab() {
   const saved = localStorage.getItem('dash_activeTab') || 'home';
   const valid = new Set(['home', 'tasks', 'notes']);
   const tab   = valid.has(saved) ? saved : 'home';
-  activeTab   = tab;
+  // Do NOT set activeTab here — switchTab needs activeTab !== tab to proceed.
+  // activeTab is initialized to 'home' at module scope, so this is safe.
   if (tab !== 'home') switchTab(tab);
 }
 
@@ -898,21 +899,48 @@ function closeSettings() {
 }
 
 async function saveSettings() {
-  const token  = document.getElementById('settingsToken').value.trim();
-  const gistId = document.getElementById('settingsGistId').value.trim();
+  const token    = document.getElementById('settingsToken').value.trim();
+  const gistId   = document.getElementById('settingsGistId').value.trim();
   const statusEl = document.getElementById('settingsStatus');
+
   if (!token) {
-    if (statusEl) statusEl.textContent = 'Token is required.';
+    if (statusEl) { statusEl.textContent = '⚠ Token is required.'; statusEl.className = 'settings-status error'; }
     return;
   }
+
   localStorage.setItem('dash_gh_token', token);
   if (gistId) localStorage.setItem('dash_gist_id', gistId);
-  if (statusEl) statusEl.textContent = 'Syncing…';
-  closeSettings();
-  await syncOnLoad();
-  renderTasks();
-  renderNotesList();
-  if (activeNoteId) selectNote(activeNoteId);
+
+  if (statusEl) { statusEl.textContent = '⏳ Syncing…'; statusEl.className = 'settings-status'; }
+
+  try {
+    // Push first — creates a private Gist if none exists yet
+    await gistPush();
+
+    const syncedId = localStorage.getItem('dash_gist_id');
+    if (!syncedId) {
+      if (statusEl) { statusEl.textContent = '⚠ Gist creation failed. Ensure your token has the "gist" scope.'; statusEl.className = 'settings-status error'; }
+      return;
+    }
+
+    // Update the Gist ID field with the (possibly newly created) ID
+    const gistIdEl = document.getElementById('settingsGistId');
+    if (gistIdEl) gistIdEl.value = syncedId;
+
+    // Pull remote data and merge (last-write-wins)
+    const remote = await gistPull(token, syncedId);
+    mergeRemoteData(remote);
+    saveLocalTasks();
+    saveLocalNotes();
+    renderTasks();
+    renderNotesList();
+    if (activeNoteId) selectNote(activeNoteId);
+
+    if (statusEl) { statusEl.textContent = `✓ Synced — Gist ID: ${syncedId}`; statusEl.className = 'settings-status success'; }
+  } catch (err) {
+    if (statusEl) { statusEl.textContent = `⚠ Sync failed: ${err.message || 'check token and network'}`; statusEl.className = 'settings-status error'; }
+  }
+  // Modal stays open — user closes it with ✕ or Cancel
 }
 
 /* ════════════════════════════════════════════════════════════════════
@@ -940,6 +968,7 @@ function trimPost(p, sub) {
 }
 
 async function fetchRSS(url, count = 20, useR2J = true) {
+  if (!url || typeof url !== 'string') return [];
   // Tier 0: own Cloudflare Worker (primary — reliable, edge-cached)
   try {
     const res  = await fetchWithTimeout(`${MYPROXY}${encodeURIComponent(url)}`);

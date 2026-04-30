@@ -713,7 +713,11 @@ button { font-family: var(--font); cursor: pointer; }
   font-size: .78rem;
   color: var(--text3);
   min-height: 1.2em;
+  line-height: 1.5;
+  word-break: break-all;
 }
+.settings-status.success { color: var(--green); }
+.settings-status.error   { color: var(--red); }
 
 .settings-actions {
   display: flex;
