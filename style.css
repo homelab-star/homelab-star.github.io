@@ -332,10 +332,8 @@ button { font-family: var(--font); cursor: pointer; }
 .center {
   flex: 1;
   min-width: 0;
+  min-height: 0;
   padding: 16px 20px;
-  display: flex;
-  flex-direction: column;
-  gap: 0;
   overflow-y: auto;
 }
 
@@ -350,6 +348,7 @@ button { font-family: var(--font); cursor: pointer; }
   box-shadow: var(--card-shadow);
   overflow: hidden;
   margin-bottom: 14px;
+  flex-shrink: 0;
 }
 .card .tabs {
   padding: 0 16px;
