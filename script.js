@@ -73,12 +73,16 @@ let notesData     = [];
 let activeNoteId  = null;
 let noteMode      = 'edit';
 let showDoneTasks = true;
-let gistSyncTimer = null;
-let noteSaveTimer = null;
+let tasksSyncTimer = null;
+let notesSyncTimer = null;
+let noteSaveTimer  = null;
 
 /* ── Gist sync constants ──────────────────────────────────────────── */
-const GIST_API  = 'https://api.github.com/gists';
-const GIST_FILE = 'dashboard-data.json';
+const GIST_API        = 'https://api.github.com/gists';
+const GIST_TASKS_DESC = 'dashboard-tasks';
+const GIST_TASKS_FILE = 'dashboard-tasks.json';
+const GIST_NOTES_DESC = 'dashboard-notes';
+const GIST_NOTES_FILE = 'dashboard-notes.json';
 
 /* ════════════════════════════════════════════════════════════════════
    INIT
@@ -114,8 +118,9 @@ function clearCache() {
   // Preserve user settings and personal data; wipe only RSS/Reddit caches
   const KEEP = new Set([
     'dash_fontSize', 'dash_sidebarCollapsed',
-    'dash_gh_token', 'dash_gist_id',
-    'dash_tasks',    'dash_notes',
+    'dash_gh_token',
+    'dash_tasks_gist_id', 'dash_notes_gist_id',
+    'dash_tasks',         'dash_notes',
   ]);
   Object.keys(localStorage)
     .filter(k => k.startsWith(LS_PREFIX) && !KEEP.has(k))
@@ -603,7 +608,7 @@ function commitAddTask() {
   };
   tasksData.push(task);
   saveLocalTasks();
-  queueGistSync();
+  queueTasksSync();
   renderTasks();
   collapseTaskForm();
 }
@@ -614,14 +619,14 @@ function toggleTaskDone(id) {
   task.done      = !task.done;
   task.updatedAt = new Date().toISOString();
   saveLocalTasks();
-  queueGistSync();
+  queueTasksSync();
   renderTasks();
 }
 
 function deleteTask(id) {
   tasksData = tasksData.filter(t => t.id !== id);
   saveLocalTasks();
-  queueGistSync();
+  queueTasksSync();
   renderTasks();
 }
 
@@ -647,7 +652,7 @@ function saveEditTask(id) {
   task.description = descEl?.value.trim() || '';
   task.updatedAt   = new Date().toISOString();
   saveLocalTasks();
-  queueGistSync();
+  queueTasksSync();
   renderTasks();
 }
 
@@ -748,7 +753,7 @@ function debounceSaveNote() {
   clearTimeout(noteSaveTimer);
   noteSaveTimer = setTimeout(() => {
     saveLocalNotes();
-    queueGistSync();
+    queueNotesSync();
     renderNotesList();
   }, 400);
 }
@@ -794,7 +799,7 @@ function deleteCurrentNote() {
   notesData    = notesData.filter(n => n.id !== activeNoteId);
   activeNoteId = null;
   saveLocalNotes();
-  queueGistSync();
+  queueNotesSync();
   renderNotesList();
   const emptyEl  = document.getElementById('notesEmpty');
   const editorEl = document.getElementById('noteEditor');
@@ -803,95 +808,132 @@ function deleteCurrentNote() {
 }
 
 /* ════════════════════════════════════════════════════════════════════
-   GIST SYNC
+   GIST SYNC — auto-discovery by description, no user-visible IDs
 ════════════════════════════════════════════════════════════════════ */
-function getGistCreds() {
-  return {
-    token:  localStorage.getItem('dash_gh_token'),
-    gistId: localStorage.getItem('dash_gist_id'),
-  };
+
+async function findGist(token, description) {
+  const cacheKey = `dash_${description.replace('dashboard-', '')}_gist_id`;
+  const cached = localStorage.getItem(cacheKey);
+  if (cached) return cached;
+
+  let page = 1;
+  while (true) {
+    const res = await fetch(`${GIST_API}?per_page=100&page=${page}`, {
+      headers: { Authorization: `token ${token}` },
+    });
+    if (!res.ok) throw new Error(res.status);
+    const gists = await res.json();
+    if (!gists.length) return null;
+    const match = gists.find(g => g.description === description);
+    if (match) {
+      localStorage.setItem(cacheKey, match.id);
+      return match.id;
+    }
+    if (gists.length < 100) return null;
+    page++;
+  }
 }
 
-async function syncOnLoad() {
-  const { token, gistId } = getGistCreds();
-  if (!token || !gistId) return;
-  try {
-    const remote = await gistPull(token, gistId);
-    mergeRemoteData(remote);
-    saveLocalTasks();
-    saveLocalNotes();
-    renderTasks();
-    renderNotesList();
-    if (activeNoteId) selectNote(activeNoteId);
-  } catch { /* offline or bad token — silent fail */ }
+async function getOrCreateGist(token, description, fileName) {
+  let gistId = await findGist(token, description);
+  if (!gistId) {
+    const res = await fetch(GIST_API, {
+      method:  'POST',
+      headers: { Authorization: `token ${token}`, 'Content-Type': 'application/json' },
+      body:    JSON.stringify({ description, public: false, files: { [fileName]: { content: '{}' } } }),
+    });
+    if (!res.ok) throw new Error(res.status);
+    const gist = await res.json();
+    const cacheKey = `dash_${description.replace('dashboard-', '')}_gist_id`;
+    localStorage.setItem(cacheKey, gist.id);
+    gistId = gist.id;
+  }
+  return gistId;
 }
 
-async function gistPull(token, gistId) {
+async function pullGist(token, description, fileName) {
+  const cacheKey = `dash_${description.replace('dashboard-', '')}_gist_id`;
+  let gistId = localStorage.getItem(cacheKey) || await findGist(token, description);
+  if (!gistId) return null;
   const res = await fetch(`${GIST_API}/${gistId}`, {
     headers: { Authorization: `token ${token}` },
   });
+  if (res.status === 404) {
+    localStorage.removeItem(cacheKey);
+    return null;
+  }
   if (!res.ok) throw new Error(res.status);
   const gist = await res.json();
-  return JSON.parse(gist.files[GIST_FILE]?.content || '{}');
+  const content = gist.files[fileName]?.content;
+  return content ? JSON.parse(content) : null;
 }
 
-async function gistPush() {
-  const { token, gistId } = getGistCreds();
+async function pushGist(token, description, fileName, payload) {
+  const gistId = await getOrCreateGist(token, description, fileName);
+  const res = await fetch(`${GIST_API}/${gistId}`, {
+    method:  'PATCH',
+    headers: { Authorization: `token ${token}`, 'Content-Type': 'application/json' },
+    body:    JSON.stringify({ files: { [fileName]: { content: JSON.stringify(payload) } } }),
+  });
+  if (!res.ok) throw new Error(res.status);
+}
+
+async function pushTasks(token) {
+  await pushGist(token, GIST_TASKS_DESC, GIST_TASKS_FILE, { version: 1, tasks: tasksData });
+}
+
+async function pushNotes(token) {
+  await pushGist(token, GIST_NOTES_DESC, GIST_NOTES_FILE, { version: 1, notes: notesData });
+}
+
+function mergeItems(local, remote) {
+  const map = new Map(local.map(i => [i.id, i]));
+  for (const ri of (remote || [])) {
+    const li = map.get(ri.id);
+    if (!li || ri.updatedAt > li.updatedAt) map.set(ri.id, ri);
+  }
+  return [...map.values()];
+}
+
+function queueTasksSync() {
+  clearTimeout(tasksSyncTimer);
+  tasksSyncTimer = setTimeout(() => {
+    const token = localStorage.getItem('dash_gh_token');
+    if (token) pushTasks(token).catch(() => {});
+  }, 2000);
+}
+
+function queueNotesSync() {
+  clearTimeout(notesSyncTimer);
+  notesSyncTimer = setTimeout(() => {
+    const token = localStorage.getItem('dash_gh_token');
+    if (token) pushNotes(token).catch(() => {});
+  }, 2000);
+}
+
+async function syncOnLoad() {
+  const token = localStorage.getItem('dash_gh_token');
   if (!token) return;
-  const payload = { version: 1, tasks: tasksData, notes: notesData };
-  const body    = { files: { [GIST_FILE]: { content: JSON.stringify(payload) } } };
   try {
-    if (!gistId) {
-      body.description = 'Dashboard data';
-      body.public      = false;
-      const res = await fetch(GIST_API, {
-        method:  'POST',
-        headers: { Authorization: `token ${token}`, 'Content-Type': 'application/json' },
-        body:    JSON.stringify(body),
-      });
-      if (!res.ok) return;
-      const gist = await res.json();
-      localStorage.setItem('dash_gist_id', gist.id);
-      const gistIdEl = document.getElementById('settingsGistId');
-      if (gistIdEl) gistIdEl.value = gist.id;
-    } else {
-      await fetch(`${GIST_API}/${gistId}`, {
-        method:  'PATCH',
-        headers: { Authorization: `token ${token}`, 'Content-Type': 'application/json' },
-        body:    JSON.stringify(body),
-      });
-    }
-  } catch { /* silent fail */ }
-}
-
-function queueGistSync() {
-  clearTimeout(gistSyncTimer);
-  gistSyncTimer = setTimeout(gistPush, 2000);
-}
-
-function mergeRemoteData(remote) {
-  const merge = (local, remoteArr) => {
-    const map = new Map(local.map(i => [i.id, i]));
-    for (const ri of (remoteArr || [])) {
-      const li = map.get(ri.id);
-      if (!li || ri.updatedAt > li.updatedAt) map.set(ri.id, ri);
-    }
-    return [...map.values()];
-  };
-  tasksData = merge(tasksData, remote.tasks);
-  notesData = merge(notesData, remote.notes);
+    const [rt, rn] = await Promise.all([
+      pullGist(token, GIST_TASKS_DESC, GIST_TASKS_FILE).catch(() => null),
+      pullGist(token, GIST_NOTES_DESC, GIST_NOTES_FILE).catch(() => null),
+    ]);
+    if (rt) { tasksData = mergeItems(tasksData, rt.tasks); saveLocalTasks(); }
+    if (rn) { notesData = mergeItems(notesData, rn.notes); saveLocalNotes(); }
+    renderTasks();
+    renderNotesList();
+    if (activeNoteId) selectNote(activeNoteId);
+  } catch { /* offline or revoked token — silent fail */ }
 }
 
 /* ── Settings modal ───────────────────────────────────────────────── */
 function openSettings() {
-  const { token, gistId } = getGistCreds();
-  const tokenEl  = document.getElementById('settingsToken');
-  const gistIdEl = document.getElementById('settingsGistId');
-  const statusEl = document.getElementById('settingsStatus');
-  if (tokenEl)  tokenEl.value  = token  || '';
-  if (gistIdEl) gistIdEl.value = gistId || '';
-  if (statusEl) statusEl.textContent = '';
   document.getElementById('settingsOverlay').style.display = 'flex';
+  const tokenEl  = document.getElementById('settingsToken');
+  const statusEl = document.getElementById('settingsStatus');
+  if (tokenEl)  tokenEl.value = localStorage.getItem('dash_gh_token') || '';
+  if (statusEl) { statusEl.textContent = ''; statusEl.className = 'settings-status'; }
 }
 
 function closeSettings() {
@@ -900,7 +942,6 @@ function closeSettings() {
 
 async function saveSettings() {
   const token    = document.getElementById('settingsToken').value.trim();
-  const gistId   = document.getElementById('settingsGistId').value.trim();
   const statusEl = document.getElementById('settingsStatus');
 
   if (!token) {
@@ -909,38 +950,27 @@ async function saveSettings() {
   }
 
   localStorage.setItem('dash_gh_token', token);
-  if (gistId) localStorage.setItem('dash_gist_id', gistId);
-
-  if (statusEl) { statusEl.textContent = '⏳ Syncing…'; statusEl.className = 'settings-status'; }
+  if (statusEl) { statusEl.textContent = '⏳ Discovering gists…'; statusEl.className = 'settings-status'; }
 
   try {
-    // Push first — creates a private Gist if none exists yet
-    await gistPush();
+    if (statusEl) statusEl.textContent = '⏳ Syncing tasks…';
+    const rt = await pullGist(token, GIST_TASKS_DESC, GIST_TASKS_FILE);
+    if (rt) { tasksData = mergeItems(tasksData, rt.tasks); saveLocalTasks(); }
+    await pushTasks(token);
 
-    const syncedId = localStorage.getItem('dash_gist_id');
-    if (!syncedId) {
-      if (statusEl) { statusEl.textContent = '⚠ Gist creation failed. Ensure your token has the "gist" scope.'; statusEl.className = 'settings-status error'; }
-      return;
-    }
+    if (statusEl) statusEl.textContent = '⏳ Syncing notes…';
+    const rn = await pullGist(token, GIST_NOTES_DESC, GIST_NOTES_FILE);
+    if (rn) { notesData = mergeItems(notesData, rn.notes); saveLocalNotes(); }
+    await pushNotes(token);
 
-    // Update the Gist ID field with the (possibly newly created) ID
-    const gistIdEl = document.getElementById('settingsGistId');
-    if (gistIdEl) gistIdEl.value = syncedId;
-
-    // Pull remote data and merge (last-write-wins)
-    const remote = await gistPull(token, syncedId);
-    mergeRemoteData(remote);
-    saveLocalTasks();
-    saveLocalNotes();
     renderTasks();
     renderNotesList();
     if (activeNoteId) selectNote(activeNoteId);
 
-    if (statusEl) { statusEl.textContent = `✓ Synced — Gist ID: ${syncedId}`; statusEl.className = 'settings-status success'; }
+    if (statusEl) { statusEl.textContent = '✓ Synced — tasks & notes updated'; statusEl.className = 'settings-status success'; }
   } catch (err) {
     if (statusEl) { statusEl.textContent = `⚠ Sync failed: ${err.message || 'check token and network'}`; statusEl.className = 'settings-status error'; }
   }
-  // Modal stays open — user closes it with ✕ or Cancel
 }
 
 /* ════════════════════════════════════════════════════════════════════

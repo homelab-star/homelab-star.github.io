@@ -206,11 +206,9 @@
         <span>⚙ Sync Settings</span>
         <button class="settings-close-btn" onclick="closeSettings()">✕</button>
       </div>
-      <p class="settings-note">Enter your GitHub PAT (gist scope). It is saved only in this browser, never in the source repo.</p>
+      <p class="settings-note">Enter your GitHub PAT (gist scope). It is saved only in this browser, never in the source repo. Tasks and notes are auto-synced to two private gists named <code>dashboard-tasks</code> and <code>dashboard-notes</code>.</p>
       <label class="settings-label">GitHub Personal Access Token</label>
       <input type="password" id="settingsToken" class="settings-input" placeholder="ghp_…" autocomplete="off"/>
-      <label class="settings-label">Gist ID <span class="settings-hint">(leave blank — auto-created on first save)</span></label>
-      <input type="text" id="settingsGistId" class="settings-input" placeholder="auto-created"/>
       <div class="settings-status" id="settingsStatus"></div>
       <div class="settings-actions">
         <button class="settings-save-btn" onclick="saveSettings()">Save &amp; Sync</button>
