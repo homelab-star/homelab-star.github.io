@@ -495,6 +495,32 @@ button { font-family: var(--font); cursor: pointer; }
   flex-shrink: 0;
 }
 
+/* ── Dismiss button (desktop hover ✕) ────────────────────────────── */
+.news-dismiss-btn {
+  position: absolute;
+  top: 6px;
+  right: 6px;
+  width: 22px;
+  height: 22px;
+  border-radius: 50%;
+  border: none;
+  background: rgba(0,0,0,.45);
+  color: #fff;
+  font-size: .65rem;
+  line-height: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  opacity: 0;
+  transition: opacity .15s;
+  padding: 0;
+  flex-shrink: 0;
+}
+.news-card { position: relative; transition: transform .2s ease, opacity .2s ease; }
+.news-card:hover .news-dismiss-btn { opacity: 1; }
+.news-card--dismissed { transform: translateX(-110%) !important; opacity: 0; }
+
 /* ── Reddit Items ─────────────────────────────────────────────────── */
 .reddit-item {
   padding: 9px 16px;
@@ -1237,13 +1263,14 @@ button { font-family: var(--font); cursor: pointer; }
   .tabs::-webkit-scrollbar { display: none; }
   .tab { flex-shrink: 0; }
 
-  /* Notes: stack sidebar below editor on mobile */
-  .notes-layout { flex-direction: column; }
+  /* Notes: sidebar on top, editor below */
+  .notes-layout { flex-direction: column-reverse; }
   .notes-sidebar {
     width: 100%;
     border-left: none;
-    border-top: 1px solid var(--border);
-    max-height: 38vh;
+    border-bottom: 1px solid var(--border);
+    border-top: none;
+    max-height: 40vh;
   }
 
   /* Bookmark bar: collapse inner, show toggle button */

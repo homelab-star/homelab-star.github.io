@@ -246,44 +246,57 @@ async function loadNews(tab, silent = false) {
   if (!ok && !silent) el.innerHTML = '<div class="loading-msg error">RSS feeds temporarily unavailable.</div>';
 }
 
+/* ── Dismissed news helpers ───────────────────────────────────────── */
+const NEWS_MAX_AGE = 24 * 60 * 60 * 1000; // 24 h
+
+function getDismissed() {
+  try { return JSON.parse(localStorage.getItem('dash_dismissed_news') || '[]'); }
+  catch { return []; }
+}
+
+function saveDismissed(entries) {
+  try { localStorage.setItem('dash_dismissed_news', JSON.stringify(entries)); } catch {}
+}
+
+function pruneDismissed() {
+  const cutoff = Date.now() - NEWS_MAX_AGE;
+  const pruned = getDismissed().filter(d => d.ts > cutoff);
+  saveDismissed(pruned);
+  return new Set(pruned.map(d => d.url));
+}
+
+function dismissNewsUrl(url) {
+  const entries = getDismissed().filter(d => d.url !== url);
+  entries.push({ url, ts: Date.now() });
+  // cap at 500 entries (oldest first)
+  saveDismissed(entries.slice(-500));
+}
+
 async function bgFetchNews(tab, useR2J = true) {
   const items = await fetchRSSMany(FEEDS[tab] || [], 20, useR2J);
   if (!items.length) return false;
 
-  const MAX_AGE = 7 * 24 * 60 * 60 * 1000;
-  const MIN_PER = 8;
-
-  const byFeed = new Map();
-  for (const item of items) {
-    const k = item._feed || 'other';
-    if (!byFeed.has(k)) byFeed.set(k, []);
-    byFeed.get(k).push(item);
-  }
-
-  const guaranteed = [], overflow = [];
-  for (const feedItems of byFeed.values()) {
-    const isRecent = i => {
-      if (!i.pubDate) return true;
-      const age = Date.now() - new Date(i.pubDate).getTime();
-      return isNaN(age) || age < MAX_AGE;
-    };
-    const fresh = feedItems.filter(isRecent);
-    const pool  = fresh.length >= MIN_PER ? fresh : feedItems;
-    guaranteed.push(...pool.slice(0, MIN_PER));
-    overflow.push(...pool.slice(MIN_PER));
-  }
+  const isRecent = i => {
+    if (!i.pubDate) return false;
+    const age = Date.now() - new Date(i.pubDate).getTime();
+    return !isNaN(age) && age < NEWS_MAX_AGE;
+  };
 
   const seen = new Set();
-  const sorted = [...guaranteed, ...overflow].sort((a, b) => {
-    const da = new Date(a.pubDate).getTime(), db = new Date(b.pubDate).getTime();
-    if (isNaN(da) && isNaN(db)) return 0;
-    if (isNaN(da)) return 1;
-    if (isNaN(db)) return -1;
-    return db - da;
-  }).filter(i => {
-    if (!i.title || seen.has(i.title)) return false;
-    seen.add(i.title); return true;
-  }).slice(0, 60);
+  const sorted = items
+    .filter(isRecent)
+    .sort((a, b) => {
+      const da = new Date(a.pubDate).getTime(), db = new Date(b.pubDate).getTime();
+      if (isNaN(da) && isNaN(db)) return 0;
+      if (isNaN(da)) return 1;
+      if (isNaN(db)) return -1;
+      return db - da;
+    })
+    .filter(i => {
+      if (!i.title || seen.has(i.title)) return false;
+      seen.add(i.title); return true;
+    })
+    .slice(0, 60);
 
   if (!sorted.length) return false;
   cache.news[tab] = sorted;
@@ -305,14 +318,25 @@ function sportIcon(link) {
 }
 
 function renderNews(el, items) {
-  if (!items.length) {
-    el.innerHTML = '<div class="loading-msg error">RSS feeds temporarily unavailable.</div>';
+  const dismissed = pruneDismissed();
+
+  // also apply 24hr age filter at render time (catches stale cached batches)
+  const visible = items.filter(i => {
+    if (dismissed.has(i.link)) return false;
+    if (!i.pubDate) return false;
+    const age = Date.now() - new Date(i.pubDate).getTime();
+    return !isNaN(age) && age < NEWS_MAX_AGE;
+  });
+
+  if (!visible.length) {
+    el.innerHTML = '<div class="loading-msg">No recent news in the last 24 hours.</div>';
     return;
   }
+
   const activeNewsTab = document.querySelector('.news-tabs .tab.active')?.dataset.tab || '';
   const isSportsTab   = activeNewsTab === 'sports';
 
-  const cards = items.map(item => {
+  const cards = visible.map(item => {
     const thumbUrl = item.thumbnail || item.enclosure?.link || '';
     let thumbContent;
     if (thumbUrl) {
@@ -324,16 +348,61 @@ function renderNews(el, items) {
       const src = domain(item.link).replace(/^www\./, '').split('.')[0].toUpperCase().slice(0, 4);
       thumbContent = `<span class="news-card-thumb-src">${src}</span>`;
     }
-    return `<div class="news-card">
+    return `<div class="news-card" data-url="${esc(item.link)}">
       <div class="news-card-thumb-wrap">${thumbContent}</div>
       <div class="news-card-body">
         <a class="news-card-title" href="${esc(item.link)}" target="_blank" rel="noreferrer">${esc(item.title)}</a>
         <div class="news-card-meta">${timeAgo(item.pubDate)} · ${domain(item.link)}</div>
       </div>
+      <button class="news-dismiss-btn" onclick="dismissCard(this)" title="Dismiss" aria-label="Dismiss article">✕</button>
     </div>`;
   }).join('');
 
-  el.innerHTML = `<div class="news-grid">${cards}</div>`;
+  const grid = document.createElement('div');
+  grid.className = 'news-grid';
+  grid.innerHTML = cards;
+  el.innerHTML = '';
+  el.appendChild(grid);
+  attachSwipeDismiss(grid);
+}
+
+function dismissCard(btnOrCard) {
+  const card = btnOrCard.closest ? btnOrCard.closest('.news-card') : btnOrCard;
+  if (!card) return;
+  const url = card.dataset.url;
+  if (url) dismissNewsUrl(url);
+  card.classList.add('news-card--dismissed');
+  card.addEventListener('transitionend', () => card.remove(), { once: true });
+}
+
+function attachSwipeDismiss(grid) {
+  let startX = 0, startY = 0, card = null;
+
+  grid.addEventListener('touchstart', e => {
+    const t = e.touches[0];
+    startX = t.clientX;
+    startY = t.clientY;
+    card   = e.target.closest('.news-card');
+  }, { passive: true });
+
+  grid.addEventListener('touchmove', e => {
+    if (!card) return;
+    const dx = e.touches[0].clientX - startX;
+    const dy = e.touches[0].clientY - startY;
+    if (Math.abs(dy) > Math.abs(dx)) { card = null; return; } // vertical scroll
+    if (dx < 0) card.style.transform = `translateX(${dx}px)`;
+  }, { passive: true });
+
+  grid.addEventListener('touchend', e => {
+    if (!card) return;
+    const dx = e.changedTouches[0].clientX - startX;
+    if (dx < -80) {
+      dismissCard(card);
+    } else {
+      card.style.transform = '';
+    }
+    card = null;
+  }, { passive: true });
 }
 
 /* ════════════════════════════════════════════════════════════════════
