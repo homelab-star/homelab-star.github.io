@@ -88,6 +88,7 @@ const GIST_NOTES_FILE = 'dashboard-notes.json';
    INIT
 ════════════════════════════════════════════════════════════════════ */
 document.addEventListener('DOMContentLoaded', () => {
+  importFromFragment(); // handle #import= from QR scan before anything else
   initFontSize();
   initBookmarkBar();
   loadLocalData();    // must run before initTab so tasks/notes are ready
@@ -1119,49 +1120,244 @@ async function syncOnLoad() {
 }
 
 /* ── Settings modal ───────────────────────────────────────────────── */
-function openSettings() {
-  document.getElementById('settingsOverlay').style.display = 'flex';
-  const tokenEl  = document.getElementById('settingsToken');
-  const statusEl = document.getElementById('settingsStatus');
-  if (tokenEl)  tokenEl.value = localStorage.getItem('dash_gh_token') || '';
-  if (statusEl) { statusEl.textContent = ''; statusEl.className = 'settings-status'; }
+/* ════════════════════════════════════════════════════════════════════
+   AUTH — GitHub Device Flow + QR transfer
+════════════════════════════════════════════════════════════════════ */
+const GITHUB_CLIENT_ID    = '';  // paste your OAuth App client_id here after registration
+const GITHUB_DEVICE_URL   = 'https://proxy.emmzy.com/auth/device';
+const GITHUB_TOKEN_URL    = 'https://proxy.emmzy.com/auth/token';
+
+let devicePollTimeout = null;
+let qrHideTimeout     = null;
+let qrCountdownTimer  = null;
+
+// ── Called on load — import token from QR scan (URL fragment) ─────────
+function importFromFragment() {
+  const hash = window.location.hash;
+  if (!hash.startsWith('#import=')) return;
+  const token = decodeURIComponent(hash.slice(8));
+  history.replaceState(null, '', window.location.pathname + window.location.search);
+  if (!token) return;
+  localStorage.setItem('dash_gh_token', token);
+  syncOnLoad();
+  openSettings();
 }
 
-function closeSettings() {
-  document.getElementById('settingsOverlay').style.display = 'none';
-}
-
-async function saveSettings() {
-  const token    = document.getElementById('settingsToken').value.trim();
+// ── Device Flow ───────────────────────────────────────────────────────
+async function startDeviceFlow() {
   const statusEl = document.getElementById('settingsStatus');
+  const codeArea = document.getElementById('deviceCodeArea');
+  setStatus(statusEl, '⏳ Requesting device code…', '');
 
-  if (!token) {
-    if (statusEl) { statusEl.textContent = '⚠ Token is required.'; statusEl.className = 'settings-status error'; }
+  let data;
+  try {
+    const res = await fetch(GITHUB_DEVICE_URL, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+      body: `client_id=${encodeURIComponent(GITHUB_CLIENT_ID)}&scope=gist`,
+    });
+    data = await res.json();
+  } catch {
+    setStatus(statusEl, '⚠ Could not reach GitHub. Check connection.', 'error');
     return;
   }
 
-  localStorage.setItem('dash_gh_token', token);
-  if (statusEl) { statusEl.textContent = '⏳ Discovering gists…'; statusEl.className = 'settings-status'; }
+  if (!data.device_code) {
+    setStatus(statusEl, `⚠ GitHub error: ${data.error_description || data.error || 'unknown'}`, 'error');
+    return;
+  }
+
+  codeArea.innerHTML = `
+    <div class="device-code-wrap">
+      <p class="device-code-label">Visit <strong>github.com/login/device</strong> and enter:</p>
+      <div class="device-code">${data.user_code}</div>
+      <a class="device-code-link" href="${data.verification_uri}" target="_blank" rel="noreferrer">Open GitHub on this device ↗</a>
+    </div>`;
+  codeArea.style.display = 'block';
+  setStatus(statusEl, '⏳ Waiting for you to authorize on GitHub…', '');
+
+  clearTimeout(devicePollTimeout);
+  schedulePoll(data.device_code, (data.interval || 5) * 1000);
+}
+
+function schedulePoll(deviceCode, intervalMs) {
+  devicePollTimeout = setTimeout(() => pollDeviceToken(deviceCode, intervalMs), intervalMs);
+}
+
+async function pollDeviceToken(deviceCode, intervalMs) {
+  const statusEl = document.getElementById('settingsStatus');
+  const codeArea = document.getElementById('deviceCodeArea');
+  if (!statusEl) return; // modal closed
+
+  let data;
+  try {
+    const res = await fetch(GITHUB_TOKEN_URL, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+      body: `client_id=${encodeURIComponent(GITHUB_CLIENT_ID)}&device_code=${encodeURIComponent(deviceCode)}&grant_type=urn:ietf:params:oauth:grant-type:device_code`,
+    });
+    data = await res.json();
+  } catch {
+    schedulePoll(deviceCode, intervalMs); // network hiccup — retry
+    return;
+  }
+
+  if (data.error === 'authorization_pending') { schedulePoll(deviceCode, intervalMs); return; }
+  if (data.error === 'slow_down')             { schedulePoll(deviceCode, intervalMs + 5000); return; }
+  if (data.error === 'expired_token') {
+    if (codeArea) codeArea.style.display = 'none';
+    setStatus(statusEl, '⚠ Code expired. Please try again.', 'error');
+    return;
+  }
+  if (data.access_token) {
+    if (codeArea) codeArea.style.display = 'none';
+    localStorage.setItem('dash_gh_token', data.access_token);
+    await finishAuth(data.access_token, statusEl);
+    return;
+  }
+  schedulePoll(deviceCode, intervalMs); // unexpected — keep trying
+}
+
+async function finishAuth(token, statusEl) {
+  try {
+    const res = await fetch('https://api.github.com/user', { headers: { Authorization: `token ${token}` } });
+    if (res.ok) { const u = await res.json(); localStorage.setItem('dash_gh_user', u.login); }
+  } catch {}
+
+  renderSettingsAuth();
 
   try {
-    if (statusEl) statusEl.textContent = '⏳ Syncing tasks…';
+    setStatus(statusEl, '⏳ Syncing tasks…', '');
     const rt = await pullGist(token, GIST_TASKS_DESC, GIST_TASKS_FILE);
-    if (rt) { tasksData = mergeItems(tasksData, rt.tasks); saveLocalTasks(); }
+    if (rt?.tasks) { tasksData = mergeItems(tasksData, rt.tasks); saveLocalTasks(); }
     await pushTasks(token);
 
-    if (statusEl) statusEl.textContent = '⏳ Syncing notes…';
+    setStatus(statusEl, '⏳ Syncing notes…', '');
     const rn = await pullGist(token, GIST_NOTES_DESC, GIST_NOTES_FILE);
-    if (rn) { notesData = mergeItems(notesData, rn.notes); saveLocalNotes(); }
+    if (rn?.notes) { notesData = mergeItems(notesData, rn.notes); saveLocalNotes(); }
     await pushNotes(token);
 
     renderTasks();
     renderNotesList();
     if (activeNoteId) selectNote(activeNoteId);
-
-    if (statusEl) { statusEl.textContent = '✓ Synced — tasks & notes updated'; statusEl.className = 'settings-status success'; }
-  } catch (err) {
-    if (statusEl) { statusEl.textContent = `⚠ Sync failed: ${err.message || 'check token and network'}`; statusEl.className = 'settings-status error'; }
+    setStatus(statusEl, '✓ Connected and synced!', 'success');
+  } catch {
+    setStatus(statusEl, '✓ Connected — sync running in background', 'success');
   }
+}
+
+// ── QR export ─────────────────────────────────────────────────────────
+function showQRCode() {
+  const token = localStorage.getItem('dash_gh_token');
+  if (!token || typeof QRCode === 'undefined') return;
+
+  const qrArea  = document.getElementById('qrCodeArea');
+  const countEl = document.getElementById('qrCountdown');
+  if (!qrArea) return;
+
+  const url = `${location.origin}${location.pathname}#import=${encodeURIComponent(token)}`;
+  qrArea.innerHTML = '';
+
+  const canvas = document.createElement('canvas');
+  QRCode.toCanvas(canvas, url, { width: 180, margin: 1, color: { dark: '#0d1117', light: '#ffffff' } }, err => {
+    if (err) { qrArea.textContent = 'QR generation failed.'; return; }
+    qrArea.appendChild(canvas);
+  });
+  qrArea.style.display = 'flex';
+
+  clearTimeout(qrHideTimeout);
+  clearInterval(qrCountdownTimer);
+  let secs = 30;
+  if (countEl) countEl.textContent = `Auto-hides in ${secs}s`;
+  qrCountdownTimer = setInterval(() => {
+    secs--;
+    if (countEl) countEl.textContent = `Auto-hides in ${secs}s`;
+    if (secs <= 0) { clearInterval(qrCountdownTimer); hideQRCode(); }
+  }, 1000);
+  qrHideTimeout = setTimeout(hideQRCode, 30000);
+}
+
+function hideQRCode() {
+  clearTimeout(qrHideTimeout);
+  clearInterval(qrCountdownTimer);
+  const qrArea  = document.getElementById('qrCodeArea');
+  const countEl = document.getElementById('qrCountdown');
+  if (qrArea)  { qrArea.innerHTML = ''; qrArea.style.display = 'none'; }
+  if (countEl) countEl.textContent = '';
+}
+
+// ── Sign out ──────────────────────────────────────────────────────────
+function signOut() {
+  clearTimeout(devicePollTimeout);
+  hideQRCode();
+  ['dash_gh_token','dash_gh_user','dash_tasks_gist_id','dash_notes_gist_id'].forEach(k => localStorage.removeItem(k));
+  renderSettingsAuth();
+  const s = document.getElementById('settingsStatus');
+  if (s) { s.textContent = ''; s.className = 'settings-status'; }
+}
+
+// ── PAT fallback ──────────────────────────────────────────────────────
+async function saveSettingsPAT() {
+  const tokenEl  = document.getElementById('settingsPATInput');
+  const statusEl = document.getElementById('settingsStatus');
+  const token    = tokenEl?.value.trim();
+  if (!token) { setStatus(statusEl, '⚠ Token is required.', 'error'); return; }
+  localStorage.setItem('dash_gh_token', token);
+  await finishAuth(token, statusEl);
+}
+
+// ── Modal render ──────────────────────────────────────────────────────
+function renderSettingsAuth() {
+  const el    = document.getElementById('settingsAuth');
+  const token = localStorage.getItem('dash_gh_token');
+  const user  = localStorage.getItem('dash_gh_user');
+  if (!el) return;
+
+  if (token) {
+    el.innerHTML = `
+      <div class="auth-connected">
+        <div class="auth-avatar">${(user || '?')[0].toUpperCase()}</div>
+        <div class="auth-info">
+          <div class="auth-name">@${user || 'connected'}</div>
+          <div class="auth-sub">GitHub Gist sync active</div>
+        </div>
+        <button class="auth-signout-btn" onclick="signOut()" aria-label="Sign out">Sign out</button>
+      </div>
+      <div class="auth-qr-section">
+        <p class="settings-note">Transfer auth to another device — scan the QR with your camera app.</p>
+        <button class="settings-outline-btn" onclick="showQRCode()">Show transfer QR</button>
+        <div id="qrCodeArea" class="qr-area" style="display:none"></div>
+        <div id="qrCountdown" class="qr-countdown"></div>
+      </div>`;
+  } else {
+    const hasClientId = GITHUB_CLIENT_ID.length > 0;
+    el.innerHTML = `
+      ${hasClientId ? `<button class="settings-save-btn" onclick="startDeviceFlow()">Sign in with GitHub</button>
+      <div id="deviceCodeArea" class="device-code-area" style="display:none"></div>` : ''}
+      <details class="pat-fallback"${!hasClientId ? ' open' : ''}>
+        <summary>Enter PAT manually</summary>
+        <input type="password" id="settingsPATInput" class="settings-input" placeholder="ghp_…" autocomplete="off" style="margin-top:8px"/>
+        <button class="settings-outline-btn" onclick="saveSettingsPAT()" style="margin-top:6px">Save &amp; Sync</button>
+      </details>`;
+  }
+}
+
+function openSettings() {
+  document.getElementById('settingsOverlay').style.display = 'flex';
+  renderSettingsAuth();
+  const s = document.getElementById('settingsStatus');
+  if (s) { s.textContent = ''; s.className = 'settings-status'; }
+}
+
+function closeSettings() {
+  clearTimeout(devicePollTimeout);
+  document.getElementById('settingsOverlay').style.display = 'none';
+}
+
+function setStatus(el, msg, type) {
+  if (!el) return;
+  el.textContent = msg;
+  el.className   = 'settings-status' + (type ? ' ' + type : '');
 }
 
 /* ════════════════════════════════════════════════════════════════════

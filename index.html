@@ -219,18 +219,15 @@
         <span>⚙ Sync Settings</span>
         <button class="settings-close-btn" onclick="closeSettings()" aria-label="Close settings">✕</button>
       </div>
-      <p class="settings-note">Enter your GitHub PAT (gist scope). It is saved only in this browser, never in the source repo. Tasks and notes are auto-synced to two private gists named <code>dashboard-tasks</code> and <code>dashboard-notes</code>.</p>
-      <label class="settings-label">GitHub Personal Access Token</label>
-      <input type="password" id="settingsToken" class="settings-input" placeholder="ghp_…" autocomplete="off"/>
+      <p class="settings-note">Sync tasks &amp; notes across devices via GitHub Gist. Credentials stay in this browser only.</p>
+      <div id="settingsAuth"><!-- rendered by renderSettingsAuth() --></div>
       <div class="settings-status" id="settingsStatus" aria-live="polite"></div>
-      <div class="settings-actions">
-        <button class="settings-save-btn" onclick="saveSettings()">Save &amp; Sync</button>
-        <button class="settings-cancel-btn" onclick="closeSettings()">Cancel</button>
-      </div>
+      <button class="settings-cancel-btn" onclick="closeSettings()" style="margin-top:6px">Close</button>
     </div>
   </div>
 
   <script src="https://cdn.jsdelivr.net/npm/marked@15/marked.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/qrcode@1/build/qrcode.min.js"></script>
   <script src="script.js"></script>
 </body>
 </html>

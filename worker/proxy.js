@@ -44,11 +44,23 @@ const ALLOWED_HOSTS = [
 const CACHE_TTL        = 300;    // 5 min edge cache
 const UPSTREAM_TIMEOUT = 10_000; // 10 s upstream timeout (client uses 8 s)
 
+// GitHub Device Flow endpoints — proxied with CORS headers (no secret needed)
+const GH_DEVICE_CODE_URL = 'https://github.com/login/device/code';
+const GH_ACCESS_TOKEN_URL = 'https://github.com/login/oauth/access_token';
+
 export default {
   async fetch(request, env, ctx) {
     // ── CORS preflight ───────────────────────────────────────────────
     if (request.method === 'OPTIONS') {
       return new Response(null, { status: 204, headers: corsHeaders(request) });
+    }
+
+    // ── GitHub Device Flow POST routes ───────────────────────────────
+    if (request.method === 'POST') {
+      const path = new URL(request.url).pathname;
+      if (path === '/auth/device') return proxyGitHubPost(GH_DEVICE_CODE_URL, request);
+      if (path === '/auth/token')  return proxyGitHubPost(GH_ACCESS_TOKEN_URL, request);
+      return reply('Method Not Allowed', 405, request);
     }
 
     if (request.method !== 'GET') {
@@ -124,6 +136,29 @@ export default {
     return addCORS(toCache, request);
   },
 };
+
+/* ── GitHub Device Flow proxy ─────────────────────────────────────── */
+async function proxyGitHubPost(targetUrl, request) {
+  const body = await request.text();
+  let upstream;
+  try {
+    upstream = await fetch(targetUrl, {
+      method: 'POST',
+      headers: {
+        'Content-Type':  'application/x-www-form-urlencoded',
+        'Accept':        'application/json',
+      },
+      body,
+    });
+  } catch (err) {
+    return reply(`Upstream fetch failed: ${err.message}`, 502, request);
+  }
+  const text = await upstream.text();
+  return new Response(text, {
+    status: upstream.status,
+    headers: { 'Content-Type': 'application/json', ...corsHeaders(request) },
+  });
+}
 
 /* ── Helpers ──────────────────────────────────────────────────────── */
 

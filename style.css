@@ -723,6 +723,119 @@ button { font-family: var(--font); cursor: pointer; }
 }
 .settings-cancel-btn:hover { border-color: var(--text2); color: var(--text); }
 
+/* outline variant — secondary action in settings */
+.settings-outline-btn {
+  background: transparent;
+  border: 1px solid var(--border2);
+  border-radius: var(--radius-sm);
+  padding: 8px 16px;
+  font-size: .84rem;
+  font-family: var(--font);
+  color: var(--text2);
+  cursor: pointer;
+  transition: border-color .15s, color .15s, background .15s;
+}
+.settings-outline-btn:hover { border-color: var(--accent); color: var(--accent); background: rgba(79,70,229,.05); }
+
+/* ── Auth connected state ─────────────────────────────────────────── */
+.auth-connected {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 10px 12px;
+  background: var(--bg3);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+}
+.auth-avatar {
+  width: 36px;
+  height: 36px;
+  border-radius: 50%;
+  background: var(--accent);
+  color: #fff;
+  font-size: .9rem;
+  font-weight: 700;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+}
+.auth-info { flex: 1; min-width: 0; }
+.auth-name { font-size: .85rem; font-weight: 600; color: var(--text); }
+.auth-sub  { font-size: .72rem; color: var(--text3); margin-top: 1px; }
+.auth-signout-btn {
+  background: transparent;
+  border: 1px solid var(--border2);
+  border-radius: var(--radius-sm);
+  padding: 4px 10px;
+  font-size: .75rem;
+  color: var(--text3);
+  cursor: pointer;
+  flex-shrink: 0;
+  transition: color .12s, border-color .12s;
+}
+.auth-signout-btn:hover { color: var(--red); border-color: var(--red); }
+
+.auth-qr-section {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  padding-top: 4px;
+}
+
+/* ── Device Flow code display ─────────────────────────────────────── */
+.device-code-area {
+  background: var(--bg3);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  padding: 12px 14px;
+}
+.device-code-wrap { display: flex; flex-direction: column; gap: 6px; }
+.device-code-label { font-size: .8rem; color: var(--text2); }
+.device-code {
+  font-family: var(--font-mono);
+  font-size: 1.5rem;
+  font-weight: 700;
+  letter-spacing: .18em;
+  color: var(--accent);
+  text-align: center;
+  padding: 6px 0;
+}
+.device-code-link {
+  font-size: .78rem;
+  color: var(--link);
+  text-align: center;
+}
+.device-code-link:hover { color: var(--link-hover); text-decoration: underline; }
+
+/* ── PAT manual fallback ──────────────────────────────────────────── */
+.pat-fallback {
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  padding: 8px 12px;
+}
+.pat-fallback summary {
+  font-size: .78rem;
+  color: var(--text3);
+  cursor: pointer;
+  user-select: none;
+}
+.pat-fallback summary:hover { color: var(--text2); }
+
+/* ── QR code display ──────────────────────────────────────────────── */
+.qr-area {
+  justify-content: center;
+  padding: 10px 0 4px;
+}
+.qr-area canvas { border-radius: var(--radius-sm); }
+.qr-countdown {
+  font-size: .72rem;
+  color: var(--text3);
+  text-align: center;
+  font-family: var(--font-mono);
+  min-height: 1em;
+}
+
 /* ════════════════════════════════════════════════════════════════════
    TASKS
 ════════════════════════════════════════════════════════════════════ */
