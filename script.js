@@ -1123,7 +1123,7 @@ async function syncOnLoad() {
 /* ════════════════════════════════════════════════════════════════════
    AUTH — GitHub Device Flow + QR transfer
 ════════════════════════════════════════════════════════════════════ */
-const GITHUB_CLIENT_ID    = '';  // paste your OAuth App client_id here after registration
+const GITHUB_CLIENT_ID    = 'Ov23liy8g87kZeVUbutP';
 const GITHUB_DEVICE_URL   = 'https://proxy.emmzy.com/auth/device';
 const GITHUB_TOKEN_URL    = 'https://proxy.emmzy.com/auth/token';
 
