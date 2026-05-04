@@ -2,32 +2,54 @@
 *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
 
 :root {
-  --bg:          #e8ecf5;
+  /* Surfaces */
+  --bg:          #f0f2f8;
   --bg2:         #ffffff;
-  --bg3:         #dde3f2;
-  --border:      #c4cce0;
-  --border2:     #9faac5;
+  --bg3:         #e8ebf4;
+
+  /* Borders — lighter for a more open feel */
+  --border:      #dde2ef;
+  --border2:     #b0bbd4;
+
+  /* Text */
   --text:        #0d1117;
   --text2:       #374151;
   --text3:       #4a5568;
-  --accent:      #4f46e5;
-  --accent-dim:  #4338ca;
-  --accent-hi:   #6366f1;
-  --link:        #4f46e5;
-  --link-hover:  #4338ca;
-  --red:         #d63535;
-  --green:       #1a9a55;
-  --green-dim:   #147040;
-  --green-hi:    #22c167;
+
+  /* Accent — three-stop indigo range */
+  --accent:        #5b50e8;
+  --accent-dim:    #4640cc;
+  --accent-hi:     #7c78f0;
+  --accent-subtle: #eeecfc;   /* pale indigo — hover fills, selected rows, chips */
+
+  /* Links */
+  --link:        #5b50e8;
+  --link-hover:  #4640cc;
+
+  /* Status */
+  --red:         #e03e3e;
+  --green:       #0f8a50;
+  --green-dim:   #0a6b3e;
+  --green-hi:    #1db868;
+
+  /* Typography */
   --font:        'Inter', 'SF Pro Text', system-ui, -apple-system, sans-serif;
   --font-mono:   'JetBrains Mono', 'Cascadia Code', 'Fira Code', monospace;
-  --header-h:    48px;
-  --header-bg:   #0f1629;
-  --header-border: #1e2b45;
-  --bmark-h:     56px;
-  --radius:      10px;
-  --radius-sm:   6px;
-  --card-shadow: 0 1px 4px rgba(0,0,0,.08), 0 6px 20px rgba(0,0,0,.06);
+
+  /* Chrome */
+  --header-h:      48px;
+  --header-bg:     #0d1424;
+  --header-border: #1a2640;
+  --bmark-h:       56px;
+
+  /* Shape */
+  --radius:    12px;
+  --radius-sm: 6px;
+
+  /* Shadow system */
+  --shadow-sm: 0 1px 2px rgba(0,0,0,.06), 0 0 0 1px rgba(0,0,0,.04);
+  --shadow-md: 0 4px 16px rgba(0,0,0,.10), 0 1px 3px rgba(0,0,0,.06);
+  --card-shadow: var(--shadow-sm);
 }
 
 
@@ -99,11 +121,11 @@ select:focus {
 .main-nav {
   display: flex;
   align-items: center;
-  background: rgba(255,255,255,.08);
-  border-radius: 8px;
+  background: rgba(255,255,255,.06);
+  border-radius: 10px;
   padding: 3px;
   gap: 2px;
-  border: 1px solid rgba(255,255,255,.06);
+  border: 1px solid rgba(255,255,255,.10);
 }
 
 .nav-link {
@@ -127,7 +149,7 @@ select:focus {
 .nav-link.active {
   background: var(--accent);
   color: #fff;
-  box-shadow: 0 2px 10px rgba(79,70,229,.45);
+  box-shadow: 0 2px 12px rgba(91,80,232,.5), inset 0 1px 0 rgba(255,255,255,.15);
   font-weight: 600;
 }
 
@@ -155,7 +177,7 @@ select:focus {
   align-items: stretch;
   background: rgba(255,255,255,.08);
   border: 1px solid rgba(255,255,255,.15);
-  border-radius: 8px;
+  border-radius: 10px;
   overflow: hidden;
   height: 32px;
   gap: 0;
@@ -188,7 +210,7 @@ select:focus {
   color: rgba(255,255,255,.6);
   width: 32px;
   height: 32px;
-  border-radius: 8px;
+  border-radius: 10px;
   font-size: .9rem;
   display: inline-flex;
   align-items: center;
@@ -207,7 +229,7 @@ select:focus {
   font-weight: 600;
   letter-spacing: .04em;
   padding: 0 14px;
-  border-radius: 8px;
+  border-radius: 10px;
   height: 32px;
   display: inline-flex;
   align-items: center;
@@ -386,7 +408,8 @@ select:focus {
 .tab {
   background: transparent;
   border: none;
-  border-bottom: 2px solid transparent;
+  border-bottom: 3px solid transparent;
+  border-radius: 3px 3px 0 0;
   margin-bottom: -1px;
   color: var(--text3);
   font-size: .72rem;
@@ -396,7 +419,7 @@ select:focus {
   text-transform: uppercase;
   transition: color .15s, border-color .15s, background .15s;
 }
-.tab:hover { color: var(--text2); background: rgba(79,70,229,.05); }
+.tab:hover { color: var(--text2); background: var(--accent-subtle); }
 .tab.active { color: var(--accent); border-bottom-color: var(--accent); background: var(--bg2); }
 
 
@@ -448,7 +471,7 @@ select:focus {
   transition: box-shadow .15s, border-color .15s;
 }
 .news-card:hover {
-  box-shadow: 0 2px 10px rgba(0,0,0,.1);
+  box-shadow: 0 2px 12px rgba(0,0,0,.09);
   border-color: var(--border2);
 }
 
@@ -677,19 +700,19 @@ select:focus {
 .show-more-btn:hover {
   color: var(--accent);
   border-color: var(--accent);
-  background: rgba(79,70,229,.05);
+  background: var(--accent-subtle);
 }
 
 /* ── Icon button (used in notes sidebar) ─────────────────────────── */
 .icon-btn {
   background: var(--bg3);
-  border: 1px solid var(--border2);
+  border: 1px solid var(--border);
   color: var(--text2);
   font-size: 1rem;
   padding: 0;
   width: 36px;
   height: 36px;
-  border-radius: 7px;
+  border-radius: 10px;
   display: inline-flex;
   align-items: center;
   justify-content: center;
@@ -716,9 +739,9 @@ select:focus {
   border-radius: var(--radius);
   border: 1px solid var(--border);
   padding: 24px 28px;
-  width: 420px;
+  width: 460px;
   max-width: calc(100vw - 32px);
-  box-shadow: 0 8px 40px rgba(0,0,0,.2);
+  box-shadow: var(--shadow-md);
   display: flex;
   flex-direction: column;
   gap: 10px;
@@ -782,7 +805,7 @@ select:focus {
   outline: none;
   transition: border-color .15s;
 }
-.settings-input:focus { border-color: var(--accent); box-shadow: 0 0 0 3px rgba(79,70,229,.12); }
+.settings-input:focus { border-color: var(--accent); box-shadow: 0 0 0 3px rgba(91,80,232,.14); background: #fafbff; }
 
 .settings-status {
   font-size: .78rem;
@@ -801,7 +824,7 @@ select:focus {
 }
 
 .settings-save-btn {
-  background: var(--accent);
+  background: linear-gradient(180deg, #6b60ec 0%, var(--accent) 100%);
   color: #fff;
   border: none;
   border-radius: var(--radius-sm);
@@ -809,26 +832,30 @@ select:focus {
   font-size: .84rem;
   font-weight: 600;
   cursor: pointer;
-  transition: background .15s;
+  box-shadow: inset 0 -2px 0 rgba(0,0,0,.14);
+  transition: background .15s, box-shadow .15s;
 }
-.settings-save-btn:hover { background: var(--accent-dim); }
+.settings-save-btn:hover {
+  background: linear-gradient(180deg, #6259ea 0%, var(--accent-dim) 100%);
+  box-shadow: inset 0 -2px 0 rgba(0,0,0,.18);
+}
 
 .settings-cancel-btn {
-  background: transparent;
-  border: 1px solid var(--border2);
+  background: var(--bg);
+  border: 1px solid var(--border);
   border-radius: var(--radius-sm);
   padding: 9px 16px;
   font-size: .84rem;
   color: var(--text2);
   cursor: pointer;
-  transition: border-color .15s, color .15s;
+  transition: border-color .15s, color .15s, background .15s;
 }
-.settings-cancel-btn:hover { border-color: var(--text2); color: var(--text); }
+.settings-cancel-btn:hover { border-color: var(--border2); color: var(--text); background: var(--bg3); }
 
 /* outline variant — secondary action in settings */
 .settings-outline-btn {
-  background: transparent;
-  border: 1px solid var(--border2);
+  background: var(--bg);
+  border: 1px solid var(--border);
   border-radius: var(--radius-sm);
   padding: 8px 16px;
   font-size: .84rem;
@@ -837,7 +864,7 @@ select:focus {
   cursor: pointer;
   transition: border-color .15s, color .15s, background .15s;
 }
-.settings-outline-btn:hover { border-color: var(--accent); color: var(--accent); background: rgba(79,70,229,.05); }
+.settings-outline-btn:hover { border-color: var(--accent); color: var(--accent); background: var(--accent-subtle); }
 
 /* ── Auth connected state ─────────────────────────────────────────── */
 .auth-connected {
@@ -970,7 +997,8 @@ select:focus {
 }
 .task-add-input:focus {
   border-color: var(--accent);
-  box-shadow: 0 0 0 3px rgba(79,70,229,.12);
+  box-shadow: 0 0 0 3px rgba(91,80,232,.14);
+  background: #fafbff;
 }
 
 .task-form-expanded {
@@ -1002,11 +1030,11 @@ select:focus {
   transition: border-color .15s;
 }
 .task-date-input:focus,
-.task-desc-input:focus { border-color: var(--accent); }
+.task-desc-input:focus { border-color: var(--accent); background: #fafbff; box-shadow: 0 0 0 3px rgba(91,80,232,.14); }
 .task-desc-input { resize: vertical; }
 
 .task-save-btn {
-  background: var(--accent);
+  background: linear-gradient(180deg, #6b60ec 0%, var(--accent) 100%);
   color: #fff;
   border: none;
   border-radius: var(--radius-sm);
@@ -1014,21 +1042,25 @@ select:focus {
   font-size: .82rem;
   font-weight: 600;
   cursor: pointer;
-  transition: background .15s;
+  box-shadow: inset 0 -2px 0 rgba(0,0,0,.14);
+  transition: background .15s, box-shadow .15s;
 }
-.task-save-btn:hover { background: var(--accent-dim); }
+.task-save-btn:hover {
+  background: linear-gradient(180deg, #6259ea 0%, var(--accent-dim) 100%);
+  box-shadow: inset 0 -2px 0 rgba(0,0,0,.18);
+}
 
 .task-cancel-btn {
-  background: transparent;
-  border: 1px solid var(--border2);
+  background: var(--bg);
+  border: 1px solid var(--border);
   border-radius: var(--radius-sm);
   padding: 7px 14px;
   font-size: .82rem;
   color: var(--text2);
   cursor: pointer;
-  transition: border-color .15s, color .15s;
+  transition: border-color .15s, color .15s, background .15s;
 }
-.task-cancel-btn:hover { border-color: var(--text2); color: var(--text); }
+.task-cancel-btn:hover { border-color: var(--border2); color: var(--text); background: var(--bg3); }
 
 .tasks-filterbar {
   display: flex;
@@ -1171,7 +1203,7 @@ select:focus {
   padding: 0;
   transition: all .12s;
 }
-.task-edit-btn:hover { background: rgba(79,70,229,.08); border-color: var(--accent); color: var(--accent); }
+.task-edit-btn:hover { background: var(--accent-subtle); border-color: var(--accent); color: var(--accent); }
 .task-del-btn:hover  { background: rgba(214,53,53,.08); border-color: var(--red); color: var(--red); }
 
 .task-meta-row {
@@ -1261,7 +1293,7 @@ select:focus {
 }
 .note-list-item:hover { background: var(--bg3); }
 .note-list-item.active {
-  background: rgba(79,70,229,.07);
+  background: var(--accent-subtle);
   border-left: 3px solid var(--accent);
   padding-left: 11px;
 }
