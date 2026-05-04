@@ -9,7 +9,7 @@
   --border2:     #9faac5;
   --text:        #0d1117;
   --text2:       #374151;
-  --text3:       #6b7fa0;
+  --text3:       #4a5568;
   --accent:      #4f46e5;
   --accent-dim:  #4338ca;
   --accent-hi:   #6366f1;
@@ -48,6 +48,21 @@ a { color: var(--link); text-decoration: none; transition: color .15s; }
 a:hover { color: var(--link-hover); }
 
 button { font-family: var(--font); cursor: pointer; }
+
+/* ── Focus visibility (keyboard navigation) ──────────────────────── */
+:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
+  border-radius: 3px;
+}
+/* Suppress outline for mouse/touch clicks; browsers that support
+   :focus-visible will suppress it automatically. For older browsers,
+   this ensures inputs/textareas keep their custom box-shadow instead. */
+input:focus,
+textarea:focus,
+select:focus {
+  outline: none;
+}
 
 /* ── Scrollbar ────────────────────────────────────────────────────── */
 ::-webkit-scrollbar { width: 5px; height: 5px; }
@@ -545,14 +560,53 @@ button { font-family: var(--font); cursor: pointer; }
 
 .ext-icon { font-size: .65rem; vertical-align: super; color: var(--text3); }
 
+/* ── Spinner keyframes ────────────────────────────────────────────── */
+@keyframes spin {
+  to { transform: rotate(360deg); }
+}
+
 /* ── Loading / Error ──────────────────────────────────────────────── */
 .loading-msg {
-  padding: 18px 0;
+  padding: 24px 0;
   text-align: center;
   color: var(--text3);
   font-size: .82rem;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 9px;
 }
-.loading-msg.error { color: var(--red); }
+.loading-msg::before {
+  content: '';
+  display: inline-block;
+  width: 15px;
+  height: 15px;
+  border: 2px solid var(--border2);
+  border-top-color: var(--accent);
+  border-radius: 50%;
+  animation: spin .7s linear infinite;
+  flex-shrink: 0;
+}
+.loading-msg.error {
+  color: var(--red);
+  flex-direction: column;
+  gap: 10px;
+}
+.loading-msg.error::before { display: none; }
+
+.retry-btn {
+  background: transparent;
+  border: 1px solid var(--red);
+  color: var(--red);
+  border-radius: var(--radius-sm);
+  padding: 5px 14px;
+  font-family: var(--font);
+  font-size: .78rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: background .15s, color .15s;
+}
+.retry-btn:hover { background: var(--red); color: #fff; }
 
 /* ── Show More / Less ─────────────────────────────────────────────── */
 .list-hidden { display: none; }
@@ -585,8 +639,8 @@ button { font-family: var(--font); cursor: pointer; }
   color: var(--text2);
   font-size: 1rem;
   padding: 0;
-  width: 32px;
-  height: 32px;
+  width: 36px;
+  height: 36px;
   border-radius: 7px;
   display: inline-flex;
   align-items: center;
@@ -950,7 +1004,7 @@ button { font-family: var(--font); cursor: pointer; }
   background: transparent;
   border: 1px solid var(--border);
   border-radius: 5px;
-  padding: 3px 10px;
+  padding: 6px 12px;
   cursor: pointer;
   transition: color .12s, border-color .12s;
 }
@@ -962,13 +1016,17 @@ button { font-family: var(--font); cursor: pointer; }
   background: transparent;
   border: 1px solid var(--border);
   border-radius: 5px;
-  padding: 2px 7px;
+  padding: 6px 10px;
   cursor: pointer;
-  transition: color .12s, border-color .12s, transform .2s;
-  line-height: 1.4;
+  transition: color .12s, border-color .12s;
+  line-height: 1;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
 }
 .sync-btn:hover { color: var(--accent); border-color: var(--accent); }
 .sync-btn:disabled { opacity: .5; cursor: default; }
+.sync-btn.syncing { animation: spin .8s linear infinite; color: var(--accent); border-color: var(--accent); }
 
 .tasks-list {
   flex: 1;
@@ -1006,11 +1064,12 @@ button { font-family: var(--font); cursor: pointer; }
   background: transparent;
   border: 2px solid var(--border2);
   border-radius: 4px;
-  width: 18px;
-  height: 18px;
+  width: 22px;
+  height: 22px;
+  min-width: 22px;
   flex-shrink: 0;
   cursor: pointer;
-  font-size: .65rem;
+  font-size: .72rem;
   display: flex;
   align-items: center;
   justify-content: center;
@@ -1043,14 +1102,19 @@ button { font-family: var(--font); cursor: pointer; }
 }
 .task-item:hover .task-item-actions { opacity: 1; }
 
+/* Always show task actions on touch devices (no hover available) */
+@media (hover: none) {
+  .task-item-actions { opacity: 1; }
+}
+
 .task-edit-btn,
 .task-del-btn {
   background: var(--bg3);
   border: 1px solid var(--border);
   border-radius: 4px;
-  width: 26px;
-  height: 26px;
-  font-size: .74rem;
+  width: 32px;
+  height: 32px;
+  font-size: .8rem;
   cursor: pointer;
   display: flex;
   align-items: center;
@@ -1198,6 +1262,8 @@ button { font-family: var(--font); cursor: pointer; }
   text-align: center;
   line-height: 1.7;
 }
+.notes-empty-mobile { display: none; }
+
 .notes-empty-state kbd {
   background: var(--bg3);
   border: 1px solid var(--border2);
@@ -1247,7 +1313,7 @@ button { font-family: var(--font); cursor: pointer; }
 .mode-btn {
   background: transparent;
   border: none;
-  padding: 5px 13px;
+  padding: 8px 14px;
   font-size: .74rem;
   font-weight: 600;
   cursor: pointer;
@@ -1260,6 +1326,18 @@ button { font-family: var(--font); cursor: pointer; }
   color: var(--accent);
   box-shadow: 0 1px 3px rgba(0,0,0,.08);
 }
+
+/* ── Note save indicator ──────────────────────────────────────────── */
+.note-save-indicator {
+  font-size: .72rem;
+  color: var(--green);
+  font-weight: 500;
+  opacity: 0;
+  transition: opacity .3s;
+  white-space: nowrap;
+  flex-shrink: 0;
+}
+.note-save-indicator.visible { opacity: 1; }
 
 .note-delete-btn {
   background: transparent;
@@ -1384,6 +1462,16 @@ button { font-family: var(--font); cursor: pointer; }
     border-bottom: 1px solid var(--border);
     border-top: none;
     max-height: 40vh;
+  }
+
+  /* Notes empty state: swap arrow direction */
+  .notes-empty-desktop { display: none; }
+  .notes-empty-mobile  { display: block; }
+
+  /* Reddit tabs: right-edge fade hints at horizontal scroll */
+  .reddit-tabs {
+    -webkit-mask-image: linear-gradient(to right, black calc(100% - 44px), transparent 100%);
+    mask-image: linear-gradient(to right, black calc(100% - 44px), transparent 100%);
   }
 
   /* Bookmark bar: collapse inner, show toggle button */
