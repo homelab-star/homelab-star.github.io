@@ -91,6 +91,7 @@ document.addEventListener('DOMContentLoaded', () => {
   importFromFragment(); // handle #import= from QR scan before anything else
   initFontSize();
   initBookmarkBar();
+  initNotesSidebar();
   loadLocalData();    // must run before initTab so tasks/notes are ready
   syncOnLoad();       // async pull from Gist if creds present
   initTab();
@@ -480,14 +481,16 @@ function renderReddit(el, posts) {
     const isLink = !p.is_self;
     return `
       <div class="reddit-item">
-        <a class="reddit-title" href="https://reddit.com${esc(p.permalink)}" target="_blank" rel="noreferrer">
-          ${esc(p.title)}${isLink ? ' <span class="ext-icon">↗</span>' : ''}
-        </a>
-        <div class="reddit-meta">
-          ${timeAgo(p.created_utc * 1000)} ·
-          ${p.score.toLocaleString()} pts ·
-          ${p.num_comments.toLocaleString()} comments
-          ${isLink ? ' · ' + esc(p.domain) : ''}
+        <div class="reddit-item-inner">
+          <a class="reddit-title" href="https://reddit.com${esc(p.permalink)}" target="_blank" rel="noreferrer">
+            ${esc(p.title)}${isLink ? ' <span class="ext-icon">↗</span>' : ''}
+          </a>
+          <div class="reddit-meta">
+            ${timeAgo(p.created_utc * 1000)} ·
+            ${p.score.toLocaleString()} pts ·
+            ${p.num_comments.toLocaleString()} comments
+            ${isLink ? ' · ' + esc(p.domain) : ''}
+          </div>
         </div>
       </div>
     `;
@@ -1718,6 +1721,25 @@ function applyFontSize(size, save = true) {
 /* ════════════════════════════════════════════════════════════════════
    BOOKMARK BAR (mobile toggle)
 ════════════════════════════════════════════════════════════════════ */
+function toggleNotesSidebar() {
+  const sidebar = document.getElementById('notesSidebar');
+  const btn     = document.getElementById('notesSidebarToggle');
+  if (!sidebar) return;
+  const collapsed = sidebar.classList.toggle('collapsed');
+  localStorage.setItem('dash_notesSidebarCollapsed', collapsed ? '1' : '0');
+  if (btn) btn.setAttribute('aria-label', collapsed ? 'Expand notes sidebar' : 'Collapse notes sidebar');
+}
+
+function initNotesSidebar() {
+  if (window.innerWidth <= 860) return;
+  const sidebar = document.getElementById('notesSidebar');
+  const btn     = document.getElementById('notesSidebarToggle');
+  if (localStorage.getItem('dash_notesSidebarCollapsed') === '1') {
+    sidebar?.classList.add('collapsed');
+    if (btn) btn.setAttribute('aria-label', 'Expand notes sidebar');
+  }
+}
+
 function toggleBookmarkBar() {
   const bar = document.querySelector('.bookmark-bar');
   const btn = document.getElementById('bmarkToggle');
