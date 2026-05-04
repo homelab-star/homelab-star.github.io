@@ -25,12 +25,7 @@
     </div>
     <div class="header-right">
       <span class="refresh-indicator" id="refreshTimer" title="Next auto-refresh" aria-live="polite"></span>
-      <div class="font-ctrl" title="Font size">
-        <button class="font-btn" onclick="changeFontSize(-1)" title="Decrease font size" aria-label="Decrease font size">A−</button>
-        <button class="font-btn" onclick="changeFontSize(1)"  title="Increase font size" aria-label="Increase font size">A+</button>
-      </div>
-      <button class="settings-btn" onclick="openSettings()" title="Sync settings" aria-label="Sync settings">⚙</button>
-      <button class="clear-cache-btn" id="clearCacheBtn" onclick="clearCache()" title="Clear all cached data and re-fetch everything" aria-label="Clear cache and refresh">⊗ Clear</button>
+      <button class="settings-btn" onclick="openSettings()" title="Settings" aria-label="Settings">⚙</button>
     </div>
   </header>
 
@@ -135,8 +130,8 @@
     <div class="page-view" id="pageTasks">
       <div class="tasks-page">
 
-        <!-- Add task bar -->
-        <div class="tasks-topbar">
+        <!-- Unified task header: add form + filter row -->
+        <div class="tasks-header">
           <div class="tasks-add-row" id="taskAddRow">
             <input class="task-add-input" id="taskAddInput" placeholder="+ Add a task…"
                    onfocus="expandTaskForm()" onkeydown="taskAddKeydown(event)"/>
@@ -153,14 +148,12 @@
               <button class="task-cancel-btn" onclick="collapseTaskForm()">Cancel</button>
             </div>
           </div>
-        </div>
-
-        <!-- Filter bar -->
-        <div class="tasks-filterbar">
-          <span class="tasks-count" id="tasksCount"></span>
-          <div class="filterbar-actions">
-            <button class="sync-btn" id="tasksSyncBtn" onclick="syncTasks()" title="Sync tasks now" aria-label="Sync tasks">⟳</button>
-            <button class="show-done-btn" id="showDoneBtn" onclick="toggleShowDone()">Hide completed</button>
+          <div class="tasks-filterbar">
+            <span class="tasks-count" id="tasksCount"></span>
+            <div class="filterbar-actions">
+              <button class="sync-btn" id="tasksSyncBtn" onclick="syncTasks()" title="Sync tasks now" aria-label="Sync tasks">⟳</button>
+              <button class="show-done-btn" id="showDoneBtn" onclick="toggleShowDone()">Hide completed</button>
+            </div>
           </div>
         </div>
 
@@ -198,10 +191,11 @@
         </div>
 
         <!-- Right sidebar: note list -->
-        <aside class="notes-sidebar">
+        <aside class="notes-sidebar" id="notesSidebar">
+          <button class="notes-sidebar-collapse" id="notesSidebarToggle" onclick="toggleNotesSidebar()" aria-label="Collapse notes sidebar" title="Collapse sidebar">‹</button>
           <div class="notes-sidebar-hdr">
             <span class="section-label">NOTES</span>
-            <div style="display:flex;gap:6px">
+            <div class="notes-sidebar-actions">
               <button class="icon-btn" id="notesSyncBtn" onclick="syncNotes()" title="Sync notes now" aria-label="Sync notes">⟳</button>
               <button class="icon-btn" onclick="createNote()" title="New note" aria-label="New note">+</button>
             </div>
@@ -224,6 +218,22 @@
       <p class="settings-note">Sync tasks &amp; notes across devices via GitHub Gist. Credentials stay in this browser only.</p>
       <div id="settingsAuth"><!-- rendered by renderSettingsAuth() --></div>
       <div class="settings-status" id="settingsStatus" aria-live="polite"></div>
+
+      <!-- ── Utilities ──────────────────────────────────────────── -->
+      <div class="settings-utilities">
+        <div class="settings-util-row">
+          <span class="settings-label">Font size</span>
+          <div class="font-ctrl" title="Font size">
+            <button class="font-btn" onclick="changeFontSize(-1)" aria-label="Decrease font size">A−</button>
+            <button class="font-btn" onclick="changeFontSize(1)"  aria-label="Increase font size">A+</button>
+          </div>
+        </div>
+        <div class="settings-util-row">
+          <span class="settings-label">Cache <span class="settings-hint">— clears feed data, keeps your content</span></span>
+          <button class="clear-cache-btn" id="clearCacheBtn" onclick="clearCache()" aria-label="Clear cache and refresh">⊗ Clear</button>
+        </div>
+      </div>
+
       <button class="settings-cancel-btn" onclick="closeSettings()" style="margin-top:6px">Close</button>
     </div>
   </div>
