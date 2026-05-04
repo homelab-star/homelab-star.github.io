@@ -468,3 +468,9 @@ Or paste the file content directly into the Cloudflare dashboard editor for `pro
 ## Adding a New Bookmark
 
 Add an `<a class="bmark">` entry to `#bookmarkInner` in `index.html` following the same pattern.
+
+## Current Focus: UX Improvements
+- Do not modify any backend logic, API routes, or data models
+- Preserve all existing functionality
+- Priority areas: accessibility, mobile responsiveness, navigation, visual consistency, loading/error states
+- Use modern and elegant UI color schemes for a cleaner look on multiple platforms
