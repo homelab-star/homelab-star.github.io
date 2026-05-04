@@ -212,10 +212,20 @@ function initTabs(containerSelector, tabClass, loadFn, defaultKey) {
   container.addEventListener('click', e => {
     const tab = e.target.closest('.' + tabClass);
     if (!tab) return;
-    container.querySelectorAll('.' + tabClass).forEach(t => t.classList.remove('active'));
+    container.querySelectorAll('.' + tabClass).forEach(t => {
+      t.classList.remove('active');
+      t.setAttribute('aria-selected', 'false');
+    });
     tab.classList.add('active');
+    tab.setAttribute('aria-selected', 'true');
     const key = tab.dataset.tab || tab.dataset.sub;
     loadFn(key);
+  });
+  // Set initial aria-selected state
+  container.querySelectorAll('.' + tabClass).forEach(t => {
+    const key = t.dataset.tab || t.dataset.sub;
+    t.setAttribute('aria-selected', key === defaultKey ? 'true' : 'false');
+    t.setAttribute('role', 'tab');
   });
   loadFn(defaultKey);
 }
@@ -244,7 +254,7 @@ async function loadNews(tab, silent = false) {
 
   if (!silent) el.innerHTML = '<div class="loading-msg">Loading…</div>';
   const ok = await bgFetchNews(tab, !silent);
-  if (!ok && !silent) el.innerHTML = '<div class="loading-msg error">RSS feeds temporarily unavailable.</div>';
+  if (!ok && !silent) el.innerHTML = `<div class="loading-msg error">RSS feeds temporarily unavailable.<button class="retry-btn" onclick="loadNews('${tab}')">Retry</button></div>`;
 }
 
 /* ── Dismissed news helpers ───────────────────────────────────────── */
@@ -430,7 +440,7 @@ async function loadReddit(sub, silent = false) {
 
   if (!silent) el.innerHTML = '<div class="loading-msg">Loading posts…</div>';
   const ok = await bgFetchReddit(sub);
-  if (!ok && !silent) el.innerHTML = '<div class="loading-msg error">Could not reach Reddit.</div>';
+  if (!ok && !silent) el.innerHTML = `<div class="loading-msg error">Could not reach Reddit.<button class="retry-btn" onclick="loadReddit('${sub}')">Retry</button></div>`;
 }
 
 async function bgFetchReddit(sub) {
@@ -508,7 +518,9 @@ function switchTab(tab) {
   activeTab = tab;
 
   document.querySelectorAll('.nav-link[data-page]').forEach(el => {
-    el.classList.toggle('active', el.dataset.page === tab);
+    const isActive = el.dataset.page === tab;
+    el.classList.toggle('active', isActive);
+    el.setAttribute('aria-current', isActive ? 'page' : 'false');
   });
 
   const pageId = 'page' + tab.charAt(0).toUpperCase() + tab.slice(1);
@@ -827,6 +839,13 @@ function debounceSaveNote() {
     saveLocalNotes();
     queueNotesSync();
     renderNotesList();
+    const ind = document.getElementById('noteSaveIndicator');
+    if (ind) {
+      ind.textContent = '✓ Saved';
+      ind.classList.add('visible');
+      clearTimeout(ind._hideTimer);
+      ind._hideTimer = setTimeout(() => ind.classList.remove('visible'), 1800);
+    }
   }, 400);
 }
 
@@ -1058,15 +1077,23 @@ async function syncTasks() {
     if (btn) { btn.textContent = '⚙'; setTimeout(() => { btn.textContent = '⟳'; }, 2000); }
     return;
   }
-  if (btn) { btn.textContent = '⏳'; btn.disabled = true; }
+  if (btn) { btn.classList.add('syncing'); btn.disabled = true; }
   try {
     const rt = await pullGist(token, GIST_TASKS_DESC, GIST_TASKS_FILE);
     if (rt) { tasksData = mergeItems(tasksData, rt.tasks); saveLocalTasks(); }
     await pushTasks(token);
     renderTasks();
-    if (btn) { btn.textContent = '✓'; setTimeout(() => { btn.textContent = '⟳'; btn.disabled = false; }, 1500); }
+    if (btn) {
+      btn.classList.remove('syncing');
+      btn.textContent = '✓';
+      setTimeout(() => { btn.textContent = '⟳'; btn.disabled = false; }, 1500);
+    }
   } catch {
-    if (btn) { btn.textContent = '⚠'; setTimeout(() => { btn.textContent = '⟳'; btn.disabled = false; }, 2000); }
+    if (btn) {
+      btn.classList.remove('syncing');
+      btn.textContent = '⚠';
+      setTimeout(() => { btn.textContent = '⟳'; btn.disabled = false; }, 2000);
+    }
   }
 }
 
@@ -1077,7 +1104,7 @@ async function syncNotes() {
     if (btn) { btn.textContent = '⚙'; setTimeout(() => { btn.textContent = '⟳'; }, 2000); }
     return;
   }
-  if (btn) { btn.textContent = '⏳'; btn.disabled = true; }
+  if (btn) { btn.classList.add('syncing'); btn.disabled = true; }
   try {
     const rn = await pullGist(token, GIST_NOTES_DESC, GIST_NOTES_FILE);
     if (rn) { notesData = mergeItems(notesData, rn.notes); saveLocalNotes(); }
@@ -1097,9 +1124,17 @@ async function syncNotes() {
         document.getElementById('noteEditor').style.display = 'none';
       }
     }
-    if (btn) { btn.textContent = '✓'; setTimeout(() => { btn.textContent = '⟳'; btn.disabled = false; }, 1500); }
+    if (btn) {
+      btn.classList.remove('syncing');
+      btn.textContent = '✓';
+      setTimeout(() => { btn.textContent = '⟳'; btn.disabled = false; }, 1500);
+    }
   } catch {
-    if (btn) { btn.textContent = '⚠'; setTimeout(() => { btn.textContent = '⟳'; btn.disabled = false; }, 2000); }
+    if (btn) {
+      btn.classList.remove('syncing');
+      btn.textContent = '⚠';
+      setTimeout(() => { btn.textContent = '⟳'; btn.disabled = false; }, 2000);
+    }
   }
 }
 
@@ -1343,15 +1378,52 @@ function renderSettingsAuth() {
 }
 
 function openSettings() {
-  document.getElementById('settingsOverlay').style.display = 'flex';
+  const overlay = document.getElementById('settingsOverlay');
+  overlay.style.display = 'flex';
   renderSettingsAuth();
   const s = document.getElementById('settingsStatus');
   if (s) { s.textContent = ''; s.className = 'settings-status'; }
+
+  openSettings._prevFocus = document.activeElement;
+
+  // Focus first focusable element after render
+  requestAnimationFrame(() => {
+    const focusable = overlay.querySelectorAll(
+      'button:not([disabled]), input:not([disabled]), a, textarea, select, [tabindex]:not([tabindex="-1"])'
+    );
+    if (focusable.length) focusable[0].focus();
+  });
+
+  // Focus trap + Escape key
+  overlay._trapHandler = (e) => {
+    if (e.key === 'Escape') { closeSettings(); return; }
+    if (e.key !== 'Tab') return;
+    const focusable = [...overlay.querySelectorAll(
+      'button:not([disabled]), input:not([disabled]), a, textarea, select, [tabindex]:not([tabindex="-1"])'
+    )];
+    if (!focusable.length) return;
+    const first = focusable[0];
+    const last  = focusable[focusable.length - 1];
+    if (e.shiftKey) {
+      if (document.activeElement === first) { e.preventDefault(); last.focus(); }
+    } else {
+      if (document.activeElement === last)  { e.preventDefault(); first.focus(); }
+    }
+  };
+  overlay.addEventListener('keydown', overlay._trapHandler);
+
+  // Backdrop click to close
+  overlay._backdropHandler = (e) => { if (e.target === overlay) closeSettings(); };
+  overlay.addEventListener('click', overlay._backdropHandler);
 }
 
 function closeSettings() {
   clearTimeout(devicePollTimeout);
-  document.getElementById('settingsOverlay').style.display = 'none';
+  const overlay = document.getElementById('settingsOverlay');
+  overlay.style.display = 'none';
+  if (overlay._trapHandler)    { overlay.removeEventListener('keydown', overlay._trapHandler);  overlay._trapHandler    = null; }
+  if (overlay._backdropHandler){ overlay.removeEventListener('click',   overlay._backdropHandler); overlay._backdropHandler = null; }
+  if (openSettings._prevFocus) { openSettings._prevFocus.focus(); openSettings._prevFocus = null; }
 }
 
 function setStatus(el, msg, type) {

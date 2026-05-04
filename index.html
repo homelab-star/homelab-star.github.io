@@ -17,10 +17,10 @@
     <div class="header-left">
       <span class="logo" aria-hidden="true">⊞</span>
       <nav class="main-nav">
-        <a href="#" class="nav-link active" data-page="home"   onclick="switchTab('home');   return false;">⌂ Home</a>
-        <a href="#" class="nav-link"        data-page="reddit" onclick="switchTab('reddit'); return false;">◫ Reddit</a>
-        <a href="#" class="nav-link"        data-page="tasks"  onclick="switchTab('tasks');  return false;">◎ Tasks</a>
-        <a href="#" class="nav-link"        data-page="notes"  onclick="switchTab('notes');  return false;">✎ Notes</a>
+        <a href="#" class="nav-link active" data-page="home"   aria-current="page" onclick="switchTab('home');   return false;">⌂ Home</a>
+        <a href="#" class="nav-link"        data-page="reddit" aria-current="false" onclick="switchTab('reddit'); return false;">◫ Reddit</a>
+        <a href="#" class="nav-link"        data-page="tasks"  aria-current="false" onclick="switchTab('tasks');  return false;">◎ Tasks</a>
+        <a href="#" class="nav-link"        data-page="notes"  aria-current="false" onclick="switchTab('notes');  return false;">✎ Notes</a>
       </nav>
     </div>
     <div class="header-right">
@@ -177,7 +177,8 @@
         <!-- Main editor area -->
         <div class="notes-main">
           <div class="notes-empty-state" id="notesEmpty">
-            <p>Select a note from the list →<br/>or press <kbd>+</kbd> to create one.</p>
+            <p class="notes-empty-desktop">Select a note from the list →<br/>or press <kbd>+</kbd> to create one.</p>
+            <p class="notes-empty-mobile">Select a note from the list above ↑<br/>or press <kbd>+</kbd> to create one.</p>
           </div>
           <div class="note-editor" id="noteEditor" style="display:none">
             <div class="note-editor-topbar">
@@ -187,6 +188,7 @@
                 <button class="mode-btn active" id="editModeBtn" onclick="setNoteMode('edit')">Edit</button>
                 <button class="mode-btn" id="previewModeBtn" onclick="setNoteMode('preview')">Preview</button>
               </div>
+              <span class="note-save-indicator" id="noteSaveIndicator" aria-live="polite"></span>
               <button class="note-delete-btn" onclick="deleteCurrentNote()" title="Delete note" aria-label="Delete note">🗑</button>
             </div>
             <textarea class="note-textarea" id="noteTextarea"
