@@ -310,7 +310,7 @@ select:focus {
 }
 
 .bmark-label {
-  font-size: .62rem;
+  font-size: .70rem;
   font-weight: 500;
   letter-spacing: .01em;
   color: inherit;
@@ -593,6 +593,54 @@ select:focus {
   gap: 10px;
 }
 .loading-msg.error::before { display: none; }
+
+/* ── Undo toast ───────────────────────────────────────────────────── */
+.undo-toast {
+  position: fixed;
+  bottom: 28px;
+  left: 50%;
+  transform: translateX(-50%) translateY(80px);
+  background: #1e2333;
+  color: #fff;
+  padding: 11px 16px;
+  border-radius: 9px;
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  font-size: .84rem;
+  box-shadow: 0 4px 24px rgba(0,0,0,.35);
+  z-index: 400;
+  opacity: 0;
+  pointer-events: none;
+  transition: transform .22s ease, opacity .22s;
+  white-space: nowrap;
+}
+.undo-toast.visible {
+  transform: translateX(-50%) translateY(0);
+  opacity: 1;
+  pointer-events: auto;
+}
+.undo-toast-btn {
+  background: transparent;
+  border: 1px solid rgba(255,255,255,.35);
+  color: #fff;
+  border-radius: 5px;
+  padding: 4px 12px;
+  font-family: var(--font);
+  font-size: .78rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: background .12s;
+}
+.undo-toast-btn:hover { background: rgba(255,255,255,.15); }
+
+/* ── Empty state (no spinner — content genuinely absent) ──────────── */
+.empty-msg {
+  padding: 28px 0;
+  text-align: center;
+  color: var(--text3);
+  font-size: .82rem;
+}
 
 .retry-btn {
   background: transparent;
@@ -1237,7 +1285,7 @@ select:focus {
 }
 
 .note-list-date {
-  font-size: .65rem;
+  font-size: .70rem;
   color: var(--text3);
   margin-top: 3px;
   font-family: var(--font-mono);

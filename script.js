@@ -340,7 +340,7 @@ function renderNews(el, items) {
   });
 
   if (!visible.length) {
-    el.innerHTML = '<div class="loading-msg">No recent news in the last 24 hours.</div>';
+    el.innerHTML = '<div class="empty-msg">No recent news in the last 24 hours.</div>';
     return;
   }
 
@@ -473,7 +473,7 @@ async function bgFetchReddit(sub) {
 
 function renderReddit(el, posts) {
   if (!posts.length) {
-    el.innerHTML = '<div class="loading-msg">No posts found.</div>';
+    el.innerHTML = '<div class="empty-msg">No posts found.</div>';
     return;
   }
   const rows = posts.map(p => {
@@ -711,6 +711,13 @@ function deleteTask(id) {
   saveLocalTasks();
   queueTasksSync();
   renderTasks();
+  showUndoToast('Task deleted', () => {
+    task.deleted   = false;
+    task.updatedAt = new Date().toISOString();
+    saveLocalTasks();
+    queueTasksSync();
+    renderTasks();
+  });
 }
 
 function toggleEditTask(id) {
@@ -744,6 +751,33 @@ function toggleShowDone() {
   const btn = document.getElementById('showDoneBtn');
   if (btn) btn.textContent = showDoneTasks ? 'Hide completed' : 'Show completed';
   renderTasks();
+}
+
+/* ── Undo toast ───────────────────────────────────────────────────── */
+let undoToastTimer = null;
+
+function showUndoToast(message, undoFn) {
+  const toast = document.getElementById('undoToast');
+  const msgEl = document.getElementById('undoToastMsg');
+  const btn   = document.getElementById('undoToastBtn');
+  if (!toast || !msgEl || !btn) return;
+
+  clearTimeout(undoToastTimer);
+  msgEl.textContent = message;
+  toast.classList.add('visible');
+
+  // Replace previous undo handler
+  const newHandler = () => {
+    clearTimeout(undoToastTimer);
+    toast.classList.remove('visible');
+    btn.removeEventListener('click', newHandler);
+    undoFn();
+  };
+  if (btn._undoHandler) btn.removeEventListener('click', btn._undoHandler);
+  btn._undoHandler = newHandler;
+  btn.addEventListener('click', newHandler);
+
+  undoToastTimer = setTimeout(() => toast.classList.remove('visible'), 4500);
 }
 
 function formatDate(isoDate) {
@@ -886,10 +920,12 @@ function renderPreview() {
 
 function deleteCurrentNote() {
   if (!activeNoteId) return;
-  if (!confirm('Delete this note?')) return;
   const note = notesData.find(n => n.id === activeNoteId);
-  if (note) { note.deleted = true; note.updatedAt = new Date().toISOString(); }
-  activeNoteId = null;
+  if (!note) return;
+  const restoredId = activeNoteId;
+  note.deleted   = true;
+  note.updatedAt = new Date().toISOString();
+  activeNoteId   = null;
   saveLocalNotes();
   queueNotesSync();
   renderNotesList();
@@ -897,6 +933,14 @@ function deleteCurrentNote() {
   const editorEl = document.getElementById('noteEditor');
   if (emptyEl)  emptyEl.style.display  = 'flex';
   if (editorEl) editorEl.style.display = 'none';
+  showUndoToast('Note deleted', () => {
+    note.deleted   = false;
+    note.updatedAt = new Date().toISOString();
+    saveLocalNotes();
+    queueNotesSync();
+    renderNotesList();
+    selectNote(restoredId);
+  });
 }
 
 /* ── Image paste / drop into notes ───────────────────────────────── */
