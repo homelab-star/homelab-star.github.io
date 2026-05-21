@@ -55,11 +55,10 @@ const FEEDS = {
   ],
 };
 
-const REDDIT_SUBS = ['investing','stocks','realestate','options','wallstreetbets','selfhosted','homelab'];
+const DEFAULT_SUBS = ['investing','stocks','realestate','options','wallstreetbets','selfhosted','homelab'];
 
 /* ── All tab keys (used for prefetch + refresh) ───────────────────── */
-const ALL_NEWS_TABS   = ['us', 'world', 'sports'];
-const ALL_REDDIT_SUBS = ['investing', 'stocks', 'realestate', 'options', 'wallstreetbets', 'selfhosted', 'homelab'];
+const ALL_NEWS_TABS = ['us', 'world', 'sports'];
 
 /* ── News/Reddit state ────────────────────────────────────────────── */
 const cache = { news: {}, reddit: {} };
@@ -67,15 +66,18 @@ let activeTab  = 'home';
 let refreshTimer = null;
 let countdown  = REFRESH_MS / 1000;
 
-/* ── Tasks + Notes state ──────────────────────────────────────────── */
+/* ── Tasks + Notes + Subs state ───────────────────────────────────── */
 let tasksData     = [];
 let notesData     = [];
+let subsData      = [];
 let activeNoteId  = null;
 let noteMode      = 'preview';
 let showDoneTasks = true;
-let tasksSyncTimer = null;
-let notesSyncTimer = null;
-let noteSaveTimer  = null;
+let tasksSyncTimer  = null;
+let notesSyncTimer  = null;
+let subsSyncTimer   = null;
+let noteSaveTimer   = null;
+let redditTabsInited = false;
 
 /* ── Gist sync constants ──────────────────────────────────────────── */
 const GIST_API        = 'https://api.github.com/gists';
@@ -83,6 +85,8 @@ const GIST_TASKS_DESC = 'dashboard-tasks';
 const GIST_TASKS_FILE = 'dashboard-tasks.json';
 const GIST_NOTES_DESC = 'dashboard-notes';
 const GIST_NOTES_FILE = 'dashboard-notes.json';
+const GIST_SUBS_DESC  = 'dashboard-subs';
+const GIST_SUBS_FILE  = 'dashboard-subs.json';
 
 /* ════════════════════════════════════════════════════════════════════
    INIT
@@ -96,7 +100,7 @@ document.addEventListener('DOMContentLoaded', () => {
   syncOnLoad();       // async pull from Gist if creds present
   initTab();
   initTabs('.news-tabs',   'tab',  loadNews,   'us');
-  initTabs('.reddit-tabs', 'tab',  loadReddit, 'investing');
+  renderRedditTabs();
   startCountdown();
   setInterval(refreshAll, REFRESH_MS);
   setTimeout(prefetchAll, 1500);
@@ -115,7 +119,8 @@ document.addEventListener('DOMContentLoaded', () => {
 function pruneCache() {
   const now  = Date.now();
   const keep = new Set(['dash_fontSize','dash_sidebarCollapsed','dash_bmarkCollapsed',
-    'dash_gh_token','dash_tasks_gist_id','dash_notes_gist_id','dash_tasks','dash_notes','dash_activeTab']);
+    'dash_gh_token','dash_tasks_gist_id','dash_notes_gist_id','dash_subs_gist_id',
+    'dash_tasks','dash_notes','dash_subreddits','dash_activeTab']);
   Object.keys(localStorage)
     .filter(k => k.startsWith(LS_PREFIX) && !keep.has(k))
     .forEach(k => {
@@ -144,8 +149,8 @@ function clearCache() {
   const KEEP = new Set([
     'dash_fontSize', 'dash_bmarkCollapsed', 'dash_activeTab',
     'dash_gh_token',
-    'dash_tasks_gist_id', 'dash_notes_gist_id',
-    'dash_tasks',         'dash_notes',
+    'dash_tasks_gist_id', 'dash_notes_gist_id', 'dash_subs_gist_id',
+    'dash_tasks',         'dash_notes',          'dash_subreddits',
   ]);
   Object.keys(localStorage)
     .filter(k => k.startsWith(LS_PREFIX) && !KEEP.has(k))
@@ -162,7 +167,7 @@ function clearCache() {
   ALL_NEWS_TABS
     .filter(t => t !== nTab?.dataset.tab)
     .forEach((tab, i) => setTimeout(() => loadNews(tab, true), 300 + i * 200));
-  ALL_REDDIT_SUBS
+  subsData
     .filter(s => s !== rTab?.dataset.sub)
     .forEach((sub, i) => setTimeout(() => loadReddit(sub, true), 900 + i * 300));
 
@@ -186,7 +191,7 @@ function prefetchAll() {
     .filter(t => t !== activeNews)
     .forEach((tab, i) => setTimeout(() => loadNews(tab, true), i * 200));
 
-  ALL_REDDIT_SUBS
+  subsData
     .filter(s => s !== activeReddit)
     .forEach((sub, i) => setTimeout(() => loadReddit(sub, true), 500 + i * 300));
 }
@@ -513,6 +518,89 @@ function toggleListExpand(btn) {
   }
 }
 
+/* ── Reddit tab management ────────────────────────────────────────── */
+function renderRedditTabs() {
+  const container = document.querySelector('.reddit-tabs');
+  if (!container) return;
+
+  const activeSub = container.querySelector('.tab.active')?.dataset.sub;
+  const toLoad = subsData.includes(activeSub) ? activeSub : (subsData[0] || DEFAULT_SUBS[0]);
+
+  const tabs = subsData.map(sub => {
+    const label = sub === 'wallstreetbets' ? 'WSB' : sub.toUpperCase();
+    const isActive = sub === toLoad;
+    const removeBtn = subsData.length > 1
+      ? `<span class="tab-remove" onclick="removeSubreddit('${sub}',event)" title="Remove r/${sub}">×</span>`
+      : '';
+    return `<button class="tab${isActive ? ' active' : ''}" data-sub="${sub}" role="tab" aria-selected="${isActive}">R/${label}${removeBtn}</button>`;
+  }).join('');
+
+  container.innerHTML = tabs + `<button class="tab-add-btn" onclick="showSubredditAddForm()" title="Add subreddit" aria-label="Add subreddit">+</button><div class="tab-add-form" id="subAddForm" style="display:none"><input class="tab-add-input" id="subAddInput" placeholder="subreddit…" onkeydown="subAddKeydown(event)" maxlength="30" autocomplete="off"><button class="tab-add-confirm" onclick="commitAddSubreddit()">Add</button><button class="tab-add-cancel" onclick="hideSubredditAddForm()">✕</button></div>`;
+
+  if (!redditTabsInited) {
+    container.addEventListener('click', e => {
+      const tab = e.target.closest('.tab[data-sub]');
+      if (!tab || e.target.classList.contains('tab-remove')) return;
+      container.querySelectorAll('.tab[data-sub]').forEach(t => {
+        t.classList.remove('active');
+        t.setAttribute('aria-selected', 'false');
+      });
+      tab.classList.add('active');
+      tab.setAttribute('aria-selected', 'true');
+      loadReddit(tab.dataset.sub);
+    });
+    redditTabsInited = true;
+  }
+
+  loadReddit(toLoad);
+}
+
+function showSubredditAddForm() {
+  const form = document.getElementById('subAddForm');
+  const input = document.getElementById('subAddInput');
+  if (form) form.style.display = 'flex';
+  if (input) { input.value = ''; input.focus(); }
+}
+
+function hideSubredditAddForm() {
+  const form = document.getElementById('subAddForm');
+  if (form) form.style.display = 'none';
+}
+
+function subAddKeydown(e) {
+  if (e.key === 'Enter')  { e.preventDefault(); commitAddSubreddit(); }
+  if (e.key === 'Escape') { e.preventDefault(); hideSubredditAddForm(); }
+}
+
+function commitAddSubreddit() {
+  const input = document.getElementById('subAddInput');
+  const name = (input?.value || '').trim().toLowerCase().replace(/^r\//, '');
+  if (!name || !/^[a-zA-Z0-9_]+$/.test(name)) return;
+  if (subsData.includes(name)) { hideSubredditAddForm(); return; }
+  subsData.push(name);
+  saveLocalSubs();
+  queueSubsSync();
+  renderRedditTabs();
+  const container = document.querySelector('.reddit-tabs');
+  container?.querySelectorAll('.tab[data-sub]').forEach(t => {
+    const isNew = t.dataset.sub === name;
+    t.classList.toggle('active', isNew);
+    t.setAttribute('aria-selected', String(isNew));
+  });
+  loadReddit(name);
+}
+
+function removeSubreddit(name, e) {
+  if (e) e.stopPropagation();
+  if (subsData.length <= 1) return;
+  const idx = subsData.indexOf(name);
+  if (idx === -1) return;
+  subsData.splice(idx, 1);
+  saveLocalSubs();
+  queueSubsSync();
+  renderRedditTabs();
+}
+
 /* ════════════════════════════════════════════════════════════════════
    TAB NAVIGATION
 ════════════════════════════════════════════════════════════════════ */
@@ -556,6 +644,7 @@ function loadLocalData() {
     const n = localStorage.getItem('dash_notes');
     notesData = n ? JSON.parse(n) : [];
   } catch { notesData = []; }
+  loadLocalSubs();
 }
 
 function saveLocalTasks() {
@@ -564,6 +653,23 @@ function saveLocalTasks() {
 
 function saveLocalNotes() {
   try { localStorage.setItem('dash_notes', JSON.stringify(notesData)); } catch {}
+}
+
+function loadLocalSubs() {
+  try {
+    const s = localStorage.getItem('dash_subreddits');
+    const parsed = s ? JSON.parse(s) : null;
+    subsData = parsed?.subs?.length ? parsed.subs : [...DEFAULT_SUBS];
+  } catch { subsData = [...DEFAULT_SUBS]; }
+}
+
+function saveLocalSubs(updatedAt) {
+  try {
+    localStorage.setItem('dash_subreddits', JSON.stringify({
+      subs: subsData,
+      updatedAt: updatedAt || new Date().toISOString(),
+    }));
+  } catch {}
 }
 
 /* ════════════════════════════════════════════════════════════════════
@@ -1117,6 +1223,18 @@ function queueNotesSync() {
   }, 2000);
 }
 
+async function pushSubs(token) {
+  await pushGist(token, GIST_SUBS_DESC, GIST_SUBS_FILE, { version: 1, subs: subsData, updatedAt: new Date().toISOString() });
+}
+
+function queueSubsSync() {
+  clearTimeout(subsSyncTimer);
+  subsSyncTimer = setTimeout(() => {
+    const token = localStorage.getItem('dash_gh_token');
+    if (token) pushSubs(token).catch(() => {});
+  }, 2000);
+}
+
 async function syncTasks() {
   const token = localStorage.getItem('dash_gh_token');
   const btn   = document.getElementById('tasksSyncBtn');
@@ -1189,12 +1307,22 @@ async function syncOnLoad() {
   const token = localStorage.getItem('dash_gh_token');
   if (!token) return;
   try {
-    const [rt, rn] = await Promise.all([
+    const [rt, rn, rs] = await Promise.all([
       pullGist(token, GIST_TASKS_DESC, GIST_TASKS_FILE).catch(() => null),
       pullGist(token, GIST_NOTES_DESC, GIST_NOTES_FILE).catch(() => null),
+      pullGist(token, GIST_SUBS_DESC,  GIST_SUBS_FILE).catch(() => null),
     ]);
     if (rt) { tasksData = mergeItems(tasksData, rt.tasks); saveLocalTasks(); }
     if (rn) { notesData = mergeItems(notesData, rn.notes); saveLocalNotes(); }
+    if (rs?.subs?.length) {
+      const localStored = localStorage.getItem('dash_subreddits');
+      const localUpdatedAt = localStored ? JSON.parse(localStored).updatedAt : null;
+      if (!localUpdatedAt || rs.updatedAt > localUpdatedAt) {
+        subsData = rs.subs;
+        saveLocalSubs(rs.updatedAt);
+        renderRedditTabs();
+      }
+    }
     renderTasks();
     renderNotesList();
     if (activeNoteId) selectNote(activeNoteId);

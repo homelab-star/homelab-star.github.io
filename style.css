@@ -448,6 +448,66 @@ select:focus {
 .tab:hover { color: var(--text2); background: var(--accent-subtle); }
 .tab.active { color: var(--accent); border-bottom-color: var(--accent); background: var(--bg2); }
 
+.tab-remove {
+  display: inline-block;
+  margin-left: 4px;
+  font-size: .85em;
+  opacity: 0;
+  vertical-align: middle;
+  line-height: 1;
+  padding: 0 1px;
+  transition: opacity .12s, color .12s;
+  pointer-events: none;
+}
+.tab:hover .tab-remove,
+.tab.active .tab-remove { opacity: 0.55; pointer-events: auto; }
+.tab-remove:hover { opacity: 1 !important; color: #e53e3e; }
+
+.tab-add-btn {
+  background: transparent;
+  border: none;
+  border-bottom: 3px solid transparent;
+  margin-bottom: -1px;
+  color: var(--text3);
+  font-size: 1.1rem;
+  font-weight: 400;
+  padding: 5px 10px 6px;
+  line-height: 1;
+  transition: color .15s;
+  flex-shrink: 0;
+}
+.tab-add-btn:hover { color: var(--accent); }
+
+.tab-add-form {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  padding: 4px 8px;
+  align-self: center;
+  flex-shrink: 0;
+}
+.tab-add-input {
+  border: 1px solid var(--border);
+  border-radius: 4px;
+  background: var(--bg2);
+  color: var(--text);
+  font-size: .75rem;
+  padding: 3px 8px;
+  width: 130px;
+}
+.tab-add-input:focus { outline: none; border-color: var(--accent); }
+.tab-add-confirm,
+.tab-add-cancel {
+  background: transparent;
+  border: 1px solid var(--border);
+  border-radius: 4px;
+  color: var(--text2);
+  font-size: .7rem;
+  padding: 3px 7px;
+  transition: background .12s, color .12s, border-color .12s;
+}
+.tab-add-confirm:hover { background: var(--accent); color: #fff; border-color: var(--accent); }
+.tab-add-cancel:hover  { background: var(--bg3); }
 
 /* ── Tab Body ─────────────────────────────────────────────────────── */
 .tab-body { padding-top: 4px; }
