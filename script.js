@@ -8,8 +8,6 @@
 
 const MYPROXY     = 'https://proxy.emmzy.com/?url=';          // own CF Worker — primary
 const R2J         = 'https://api.rss2json.com/v1/api.json?rss_url=';
-const ALLORIGINS  = 'https://api.allorigins.win/get?url=';
-const CORSPROXY   = 'https://corsproxy.io/?';
 const REFRESH_MS  = 3 * 60 * 60 * 1000;   // 3 hr between auto-refreshes
 const LS_PREFIX   = 'dash_';
 const CACHE_MAX_MS = 2 * 60 * 60 * 1000;  // 2 h — ignore older localStorage entries
@@ -520,10 +518,7 @@ async function bgFetchReddit(sub) {
   const oldUrl = `https://old.reddit.com/r/${sub}/hot.json?limit=25&raw_json=1`;
   const attempts = [
     () => fetchWithTimeout(`${MYPROXY}${encodeURIComponent(url)}`).then(r => { if (!r.ok) throw 0; return r.json(); }),
-    () => fetchWithTimeout(`${ALLORIGINS}${encodeURIComponent(url)}`).then(r => { if (!r.ok) throw 0; return r.json(); }).then(w => JSON.parse(w.contents)),
-    () => fetchWithTimeout(`${CORSPROXY}${encodeURIComponent(url)}`).then(r => { if (!r.ok) throw 0; return r.json(); }),
-    () => fetchWithTimeout(`${ALLORIGINS}${encodeURIComponent(oldUrl)}`).then(r => { if (!r.ok) throw 0; return r.json(); }).then(w => JSON.parse(w.contents)),
-    () => fetchWithTimeout(`https://api.codetabs.com/v1/proxy?quest=${encodeURIComponent(url)}`).then(r => { if (!r.ok) throw 0; return r.json(); }),
+    () => fetchWithTimeout(`${MYPROXY}${encodeURIComponent(oldUrl)}`).then(r => { if (!r.ok) throw 0; return r.json(); }),
   ];
   let posts = [];
   for (const fn of attempts) {
@@ -1727,36 +1722,6 @@ async function fetchRSS(url, count = 20, useR2J = true) {
       if (data.status === 'ok' && data.items?.length) return data.items;
     } catch { /* fall through */ }
   }
-
-  // Tier 2: allorigins
-  try {
-    const res  = await fetchWithTimeout(`${ALLORIGINS}${encodeURIComponent(url)}`);
-    if (res.ok) {
-      const data  = await res.json();
-      const items = parseXML(data.contents || '');
-      if (items.length) return items;
-    }
-  } catch { /* fall through */ }
-
-  // Tier 3: corsproxy.io
-  try {
-    const res  = await fetchWithTimeout(`${CORSPROXY}${encodeURIComponent(url)}`);
-    if (res.ok) {
-      const text  = await res.text();
-      const items = parseXML(text);
-      if (items.length) return items;
-    }
-  } catch { /* fall through */ }
-
-  // Tier 4: codetabs
-  try {
-    const res  = await fetchWithTimeout(`https://api.codetabs.com/v1/proxy?quest=${encodeURIComponent(url)}`);
-    if (res.ok) {
-      const text  = await res.text();
-      const items = parseXML(text);
-      if (items.length) return items;
-    }
-  } catch { /* give up */ }
 
   return [];
 }
