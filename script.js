@@ -99,6 +99,7 @@ document.addEventListener('DOMContentLoaded', () => {
   loadLocalData();    // must run before initTab so tasks/notes are ready
   syncOnLoad();       // async pull from Gist if creds present
   initTab();
+  updateTabVisibility();
   initTabs('.news-tabs',   'tab',  loadNews,   'us');
   renderRedditTabs();
   startCountdown();
@@ -334,6 +335,40 @@ function sportIcon(link) {
   return '⚽';
 }
 
+const SOURCE_BRAND = {
+  'apnews.com':       { name: 'AP',   color: '#cf1b23' },
+  'npr.org':          { name: 'NPR',  color: '#1a1a1a' },
+  'abcnews.go.com':   { name: 'ABC',  color: '#0060a8' },
+  'cbsnews.com':      { name: 'CBS',  color: '#0069aa' },
+  'nbcnews.com':      { name: 'NBC',  color: '#fc6300' },
+  'bbc.co.uk':        { name: 'BBC',  color: '#bb1919' },
+  'bbc.com':          { name: 'BBC',  color: '#bb1919' },
+  'aljazeera.com':    { name: 'AJ',   color: '#d2a44f' },
+  'espn.com':         { name: 'ESPN', color: '#c41230' },
+  'espncricinfo.com': { name: 'CRIC', color: '#004c99' },
+};
+
+function sourceBrand(link) {
+  const d = domain(link);
+  for (const [host, brand] of Object.entries(SOURCE_BRAND))
+    if (d.includes(host)) return brand;
+  return null;
+}
+
+function handleThumbError(img) {
+  const card = img.closest('.news-card');
+  const wrap = img.closest('.news-card-thumb-wrap');
+  if (wrap) wrap.remove();
+  if (!card) return;
+  card.classList.add('news-card--no-thumb');
+  const link = card.dataset.url || '';
+  const brand = sourceBrand(link);
+  if (brand) card.style.borderLeft = `3px solid ${brand.color}`;
+  const body = card.querySelector('.news-card-body');
+  if (body && brand) body.insertAdjacentHTML('afterbegin',
+    `<span class="news-card-source">${brand.name}</span>`);
+}
+
 function renderNews(el, items) {
   const dismissed = pruneDismissed();
 
@@ -355,19 +390,38 @@ function renderNews(el, items) {
 
   const cards = visible.map(item => {
     const thumbUrl = item.thumbnail || item.enclosure?.link || '';
-    let thumbContent;
+    const brand = sourceBrand(item.link);
+
     if (thumbUrl) {
-      thumbContent = `<img class="news-card-thumb" src="${esc(thumbUrl)}" loading="lazy" alt="" onerror="this.style.display='none'">`;
-    } else if (isSportsTab) {
-      const icon = sportIcon(item.link || '');
-      thumbContent = `<span class="news-card-thumb-icon">${icon}</span>`;
-    } else {
-      const src = domain(item.link).replace(/^www\./, '').split('.')[0].toUpperCase().slice(0, 4);
-      thumbContent = `<span class="news-card-thumb-src">${src}</span>`;
+      const thumbContent = isSportsTab && !thumbUrl
+        ? `<span class="news-card-thumb-icon">${sportIcon(item.link || '')}</span>`
+        : `<img class="news-card-thumb" src="${esc(thumbUrl)}" loading="lazy" alt="" onerror="handleThumbError(this)">`;
+      return `<div class="news-card" data-url="${esc(item.link)}">
+        <div class="news-card-thumb-wrap">${thumbContent}</div>
+        <div class="news-card-body">
+          <a class="news-card-title" href="${esc(item.link)}" target="_blank" rel="noreferrer">${esc(item.title)}</a>
+          <div class="news-card-meta">${timeAgo(item.pubDate)} · ${domain(item.link)}</div>
+        </div>
+        <button class="news-dismiss-btn" onclick="dismissCard(this)" title="Dismiss" aria-label="Dismiss article">✕</button>
+      </div>`;
     }
-    return `<div class="news-card" data-url="${esc(item.link)}">
-      <div class="news-card-thumb-wrap">${thumbContent}</div>
+
+    if (isSportsTab) {
+      return `<div class="news-card" data-url="${esc(item.link)}">
+        <div class="news-card-thumb-wrap"><span class="news-card-thumb-icon">${sportIcon(item.link || '')}</span></div>
+        <div class="news-card-body">
+          <a class="news-card-title" href="${esc(item.link)}" target="_blank" rel="noreferrer">${esc(item.title)}</a>
+          <div class="news-card-meta">${timeAgo(item.pubDate)} · ${domain(item.link)}</div>
+        </div>
+        <button class="news-dismiss-btn" onclick="dismissCard(this)" title="Dismiss" aria-label="Dismiss article">✕</button>
+      </div>`;
+    }
+
+    const borderStyle = brand ? ` style="border-left:3px solid ${brand.color}"` : '';
+    const sourceTag   = brand ? `<span class="news-card-source">${brand.name}</span>` : '';
+    return `<div class="news-card news-card--no-thumb" data-url="${esc(item.link)}"${borderStyle}>
       <div class="news-card-body">
+        ${sourceTag}
         <a class="news-card-title" href="${esc(item.link)}" target="_blank" rel="noreferrer">${esc(item.title)}</a>
         <div class="news-card-meta">${timeAgo(item.pubDate)} · ${domain(item.link)}</div>
       </div>
@@ -458,7 +512,6 @@ async function bgFetchReddit(sub) {
     () => fetchWithTimeout(`${CORSPROXY}${encodeURIComponent(url)}`).then(r => { if (!r.ok) throw 0; return r.json(); }),
     () => fetchWithTimeout(`${ALLORIGINS}${encodeURIComponent(oldUrl)}`).then(r => { if (!r.ok) throw 0; return r.json(); }).then(w => JSON.parse(w.contents)),
     () => fetchWithTimeout(`https://api.codetabs.com/v1/proxy?quest=${encodeURIComponent(url)}`).then(r => { if (!r.ok) throw 0; return r.json(); }),
-    () => fetchWithTimeout(url).then(r => { if (!r.ok) throw 0; return r.json(); }),
   ];
   let posts = [];
   for (const fn of attempts) {
@@ -630,6 +683,15 @@ function initTab() {
   const valid = new Set(['home', 'reddit', 'tasks', 'notes']);
   const tab   = valid.has(saved) ? saved : 'home';
   if (tab !== 'home') switchTab(tab);
+}
+
+function updateTabVisibility() {
+  const signedIn = !!localStorage.getItem('dash_gh_token');
+  ['reddit', 'tasks', 'notes'].forEach(page => {
+    const link = document.querySelector(`.nav-link[data-page="${page}"]`);
+    if (link) link.style.display = signedIn ? '' : 'none';
+  });
+  if (!signedIn && activeTab !== 'home') switchTab('home');
 }
 
 /* ════════════════════════════════════════════════════════════════════
@@ -1435,6 +1497,7 @@ async function finishAuth(token, statusEl) {
   } catch {}
 
   renderSettingsAuth();
+  updateTabVisibility();
 
   try {
     setStatus(statusEl, '⏳ Syncing tasks…', '');
@@ -1502,6 +1565,7 @@ function signOut() {
   hideQRCode();
   ['dash_gh_token','dash_gh_user','dash_tasks_gist_id','dash_notes_gist_id'].forEach(k => localStorage.removeItem(k));
   renderSettingsAuth();
+  updateTabVisibility();
   const s = document.getElementById('settingsStatus');
   if (s) { s.textContent = ''; s.className = 'settings-status'; }
 }

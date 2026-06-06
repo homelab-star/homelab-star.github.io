@@ -6,7 +6,7 @@ This file gives a future AI assistant (or returning developer) full context on t
 
 ## Project Overview
 
-A personal **vanilla JS/HTML/CSS dashboard** — no framework, no build tool, no bundler. Hosted on GitHub Pages at `hello.emmzy.com` (repo: `homelab-star/homelab-star.github.io`). Opens as a browser homepage replacement. Four tabs: news, reddit, tasks, notes. Optional GitHub Gist sync across devices.
+A personal **vanilla JS/HTML/CSS dashboard** — no framework, no build tool, no bundler. Hosted on GitHub Pages at `hello.emmzy.com` (repo: `homelab-star/homelab-star.github.io`). Opens as a browser homepage replacement. Four tabs: news, reddit, tasks, notes (reddit/tasks/notes require GitHub sign-in). Optional GitHub Gist sync across devices.
 
 ---
 
@@ -34,7 +34,7 @@ A personal **vanilla JS/HTML/CSS dashboard** — no framework, no build tool, no
 ```
 homepage/
 ├── index.html          — Layout, all four tab page-views, settings modal shell
-├── script.js           — All application logic (~1624 lines)
+├── script.js           — All application logic (~1953 lines)
 ├── style.css           — All styles, two breakpoints (860px, 600px)
 ├── favicon.svg         — Indigo gradient "M" logo (32×32)
 ├── CNAME               — hello.emmzy.com
@@ -71,6 +71,8 @@ homepage/
 
 Tab switching: `switchTab(name)` in script.js sets `.active` on the matching `page-view` and updates `nav-link` aria state. Active tab is persisted to `localStorage('dash_activeTab')`.
 
+**Auth-gated tabs:** Reddit, Tasks, and Notes tabs are hidden when the user is not signed in. `updateTabVisibility()` checks for `dash_gh_token` and shows/hides the nav links. Called on init, after `finishAuth()`, and after `signOut()`. If the user is on a hidden tab when signing out, they are redirected to Home.
+
 ---
 
 ## script.js Structure (read this before editing)
@@ -79,8 +81,8 @@ All logic is in a single file. Sections in order:
 
 1. **Constants** (lines 1–86) — proxy URLs, refresh interval, gist constants, client ID
 2. **localStorage helpers** — `lsGet`/`lsSet` with timestamp, `pruneCache`, `clearCache`
-3. **Init** — `DOMContentLoaded`: `importFromFragment` → initFontSize → initBookmarkBar → loadLocalData → syncOnLoad → initTab → initTabs × 2 → startCountdown → setInterval(refreshAll) → setTimeout(prefetchAll)
-4. **News** — feed definitions, `fetchAllNews`, `renderNews`, tab switching, dismissed helpers
+3. **Init** — `DOMContentLoaded`: `importFromFragment` → initFontSize → initBookmarkBar → loadLocalData → syncOnLoad → initTab → updateTabVisibility → initTabs × 2 → startCountdown → setInterval(refreshAll) → setTimeout(prefetchAll)
+4. **News** — feed definitions, `SOURCE_BRAND`, `sourceBrand`, `handleThumbError`, `fetchAllNews`, `renderNews`, tab switching, dismissed helpers
 5. **Reddit** — `fetchSubreddit`, `renderReddit`, tab switching
 6. **Tasks** — CRUD, form expand/collapse, render, filter, sync queue
 7. **Notes** — CRUD, editor, preview mode, image paste/drop, render, sync queue
@@ -162,9 +164,15 @@ Each RSS URL is tried in order:
 
 `attachSwipeDismiss(grid)` attaches `touchstart/touchmove/touchend` to the news grid. Fires `dismissCard()` when `|dx| > 80` AND `|dx| > |dy|` (horizontal swipe). Dismiss button (×) also calls `dismissCard()`. The card animates `translateX(-110%)` with opacity 0 via `.news-card--dismissed`, then is removed on `transitionend`.
 
-### Cards
+### Cards — Adaptive layout
 
-Desktop: CSS grid `auto-fill minmax(220px, 1fr)`. Mobile (≤600px): horizontal compact layout — thumbnail on left (88px wide), text on right.
+Desktop: CSS grid `auto-fill minmax(260px, 1fr)`. Mobile (≤600px): horizontal compact layout — thumbnail on left (88px wide), text on right.
+
+**Two card variants:**
+- **With thumbnail:** Standard card with 16:9 thumbnail area, title, and meta below. If thumbnail image fails to load, `handleThumbError()` converts it to the no-thumb variant.
+- **Without thumbnail (`.news-card--no-thumb`):** Text-forward card with no thumbnail area. Shows a colored left border and source badge (e.g., "CBS" in blue, "AJ" in gold) using `SOURCE_BRAND` map. Title font is slightly larger.
+
+`SOURCE_BRAND` maps feed domains to brand name + color (AP red, NPR black, CBS blue, NBC orange, BBC red, AJ gold, ESPN red, etc.). `sourceBrand(link)` looks up the brand from a URL. `handleThumbError(img)` is called from `onerror` on thumbnail images — it removes the thumb-wrap, adds `.news-card--no-thumb` class, and inserts the source badge.
 
 ---
 
@@ -369,8 +377,9 @@ Header is dark navy (`#0f1629`) with a 3px indigo top border — contrasts again
 
 ## Current State — What's Working
 
-- All four tabs: Home (news), Reddit, Tasks, Notes
+- All four tabs: Home (news), Reddit, Tasks, Notes — Reddit/Tasks/Notes require sign-in
 - RSS news with 24hr age filter, dismiss-to-hide with auto-pruning, swipe-to-dismiss
+- Adaptive news cards: thumbnail cards for sources that provide images, text-forward cards with branded source badges for those that don't
 - GitHub Device Flow auth (no PAT needed on new device)
 - QR code device transfer
 - PAT manual fallback
@@ -379,10 +388,10 @@ Header is dark navy (`#0f1629`) with a 3px indigo top border — contrasts again
 - Markdown preview in Notes with `marked.js`
 - Image paste/drag-drop in Notes (canvas resize → JPEG base64)
 - Task due dates, soft delete, show/hide completed
-- Bookmark bar with 10 iOS-style favicon icons
+- Bookmark bar with iOS-style favicon icons (Redfin, Deals, G.Andhra, Gulte, CNN, Yahoo, Reddit, Cricinfo, ESPN, Invest)
 - Font size adjustment (A−/A+ buttons, 11–18px range, default 15.5px)
 - Mobile-responsive layout at both breakpoints
-- 4-tier RSS fallback proxy chain
+- Multi-tier RSS/Reddit fallback proxy chain (own CF Worker → rss2json → allorigins → corsproxy → codetabs)
 
 ---
 

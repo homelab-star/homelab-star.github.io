@@ -597,6 +597,18 @@ select:focus {
   white-space: nowrap;
 }
 
+/* -- Adaptive no-thumbnail card variant -- */
+.news-card--no-thumb .news-card-body { padding: 12px 14px; }
+.news-card--no-thumb .news-card-title { font-size: .92rem; }
+.news-card-source {
+  font-family: var(--font-mono);
+  font-size: .65rem;
+  font-weight: 700;
+  letter-spacing: .06em;
+  color: var(--text3);
+  text-transform: uppercase;
+}
+
 .news-card-body {
   padding: 8px 10px 10px;
   flex: 1;
