@@ -421,6 +421,27 @@ select:focus {
 }
 .card .widget { margin-bottom: 0; }
 
+/* News card stretches to fill viewport so grid+text-col can scroll independently */
+#pageHome .center { overflow: hidden; display: flex; flex-direction: column; }
+#pageHome .card {
+  flex: 1;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+  margin-bottom: 0;
+}
+#pageHome .widget {
+  flex: 1;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+}
+#pageHome .tab-body {
+  flex: 1;
+  min-height: 0;
+  overflow: hidden;
+}
+
 /* ── Tabs ─────────────────────────────────────────────────────────── */
 .tabs {
   display: flex;
@@ -539,13 +560,30 @@ select:focus {
   color: var(--text3);
 }
 
-/* ── News Grid (YouTube-style cards) ──────────────────────────────── */
-.news-grid {
-  display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(260px, 1fr));
-  gap: 12px;
+/* ── News split layout: thumb grid + text column ─────────────────── */
+.news-layout {
+  display: flex;
+  gap: 14px;
   padding: 12px 14px 14px;
-  max-width: 1100px;
+  height: 100%;
+  min-height: 0;
+}
+.news-grid {
+  flex: 1;
+  min-width: 0;
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  grid-auto-rows: min-content;
+  gap: 12px;
+  overflow-y: auto;
+}
+.news-text-col {
+  width: 280px;
+  flex-shrink: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  overflow-y: auto;
 }
 
 .news-card {
@@ -564,7 +602,7 @@ select:focus {
 
 .news-card-thumb-wrap {
   width: 100%;
-  aspect-ratio: 16 / 9;
+  aspect-ratio: 16 / 10;
   overflow: hidden;
   background: var(--bg3);
   flex-shrink: 0;
@@ -597,17 +635,12 @@ select:focus {
   white-space: nowrap;
 }
 
-/* -- Adaptive no-thumbnail card variant -- */
-.news-card--no-thumb .news-card-body { padding: 12px 14px; }
-.news-card--no-thumb .news-card-title { font-size: .92rem; }
-.news-card-source {
-  font-family: var(--font-mono);
-  font-size: .65rem;
-  font-weight: 700;
-  letter-spacing: .06em;
-  color: var(--text3);
-  text-transform: uppercase;
+/* -- Text-only card variant (4th column) -- */
+.news-card--no-thumb {
+  flex-shrink: 0;
 }
+.news-card--no-thumb .news-card-body { padding: 10px 12px; }
+.news-card--no-thumb .news-card-title { font-size: .82rem; }
 
 .news-card-body {
   padding: 8px 10px 10px;
@@ -1660,6 +1693,12 @@ select:focus {
 
   #pageHome { flex-direction: column; }
 
+  .news-layout { flex-direction: column; overflow-y: auto; }
+  .news-grid { grid-template-columns: repeat(2, 1fr); overflow: visible; }
+  .news-text-col { width: 100%; overflow: visible; }
+  #pageHome .center { overflow: auto; }
+  #pageHome .tab-body { overflow: visible; }
+
   #pageTasks,
   #pageNotes  { height: calc(100vh - var(--header-h) - var(--bmark-h)); }
 
@@ -1721,12 +1760,23 @@ select:focus {
 }
 
 @media (max-width: 600px) {
-  /* News: compact horizontal cards — thumb left, text right */
+  /* News: stack layout vertically on mobile */
+  .news-layout {
+    flex-direction: column;
+    overflow-y: auto;
+    padding: 6px 10px 10px;
+  }
   .news-grid {
     grid-template-columns: 1fr;
     gap: 6px;
-    padding: 6px 10px 10px;
+    overflow: visible;
   }
+  .news-text-col {
+    width: 100%;
+    overflow: visible;
+  }
+  #pageHome .center { overflow: auto; }
+  #pageHome .tab-body { overflow: visible; }
   .news-card { flex-direction: row; align-items: stretch; }
   .news-card-thumb-wrap {
     width: 88px;
@@ -1735,6 +1785,7 @@ select:focus {
     flex-shrink: 0;
     min-height: 72px;
   }
+  .news-card--no-thumb { flex-direction: column; }
   .news-card-body { padding: 8px 10px; }
   .news-card-title { font-size: .82rem; }
 

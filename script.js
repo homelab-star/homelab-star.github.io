@@ -364,9 +364,8 @@ function handleThumbError(img) {
   const link = card.dataset.url || '';
   const brand = sourceBrand(link);
   if (brand) card.style.borderLeft = `3px solid ${brand.color}`;
-  const body = card.querySelector('.news-card-body');
-  if (body && brand) body.insertAdjacentHTML('afterbegin',
-    `<span class="news-card-source">${brand.name}</span>`);
+  const textCol = card.closest('.news-layout')?.querySelector('.news-text-col');
+  if (textCol) textCol.appendChild(card);
 }
 
 function renderNews(el, items) {
@@ -388,53 +387,66 @@ function renderNews(el, items) {
   const activeNewsTab = document.querySelector('.news-tabs .tab.active')?.dataset.tab || '';
   const isSportsTab   = activeNewsTab === 'sports';
 
-  const cards = visible.map(item => {
+  const thumbCards = [];
+  const textCards  = [];
+
+  visible.forEach(item => {
     const thumbUrl = item.thumbnail || item.enclosure?.link || '';
-    const brand = sourceBrand(item.link);
 
     if (thumbUrl) {
-      const thumbContent = isSportsTab && !thumbUrl
-        ? `<span class="news-card-thumb-icon">${sportIcon(item.link || '')}</span>`
-        : `<img class="news-card-thumb" src="${esc(thumbUrl)}" loading="lazy" alt="" onerror="handleThumbError(this)">`;
-      return `<div class="news-card" data-url="${esc(item.link)}">
+      const thumbContent = `<img class="news-card-thumb" src="${esc(thumbUrl)}" loading="lazy" alt="" onerror="handleThumbError(this)">`;
+      thumbCards.push(`<div class="news-card" data-url="${esc(item.link)}">
         <div class="news-card-thumb-wrap">${thumbContent}</div>
         <div class="news-card-body">
           <a class="news-card-title" href="${esc(item.link)}" target="_blank" rel="noreferrer">${esc(item.title)}</a>
           <div class="news-card-meta">${timeAgo(item.pubDate)} · ${domain(item.link)}</div>
         </div>
         <button class="news-dismiss-btn" onclick="dismissCard(this)" title="Dismiss" aria-label="Dismiss article">✕</button>
-      </div>`;
+      </div>`);
+      return;
     }
 
     if (isSportsTab) {
-      return `<div class="news-card" data-url="${esc(item.link)}">
+      thumbCards.push(`<div class="news-card" data-url="${esc(item.link)}">
         <div class="news-card-thumb-wrap"><span class="news-card-thumb-icon">${sportIcon(item.link || '')}</span></div>
         <div class="news-card-body">
           <a class="news-card-title" href="${esc(item.link)}" target="_blank" rel="noreferrer">${esc(item.title)}</a>
           <div class="news-card-meta">${timeAgo(item.pubDate)} · ${domain(item.link)}</div>
         </div>
         <button class="news-dismiss-btn" onclick="dismissCard(this)" title="Dismiss" aria-label="Dismiss article">✕</button>
-      </div>`;
+      </div>`);
+      return;
     }
 
+    const brand = sourceBrand(item.link);
     const borderStyle = brand ? ` style="border-left:3px solid ${brand.color}"` : '';
-    const sourceTag   = brand ? `<span class="news-card-source">${brand.name}</span>` : '';
-    return `<div class="news-card news-card--no-thumb" data-url="${esc(item.link)}"${borderStyle}>
+    textCards.push(`<div class="news-card news-card--no-thumb" data-url="${esc(item.link)}"${borderStyle}>
       <div class="news-card-body">
-        ${sourceTag}
         <a class="news-card-title" href="${esc(item.link)}" target="_blank" rel="noreferrer">${esc(item.title)}</a>
         <div class="news-card-meta">${timeAgo(item.pubDate)} · ${domain(item.link)}</div>
       </div>
       <button class="news-dismiss-btn" onclick="dismissCard(this)" title="Dismiss" aria-label="Dismiss article">✕</button>
-    </div>`;
-  }).join('');
+    </div>`);
+  });
+
+  const layout = document.createElement('div');
+  layout.className = 'news-layout';
 
   const grid = document.createElement('div');
   grid.className = 'news-grid';
-  grid.innerHTML = cards;
+  grid.innerHTML = thumbCards.join('');
+  layout.appendChild(grid);
+
+  if (textCards.length) {
+    const col = document.createElement('div');
+    col.className = 'news-text-col';
+    col.innerHTML = textCards.join('');
+    layout.appendChild(col);
+  }
+
   el.innerHTML = '';
-  el.appendChild(grid);
-  attachSwipeDismiss(grid);
+  el.appendChild(layout);
+  attachSwipeDismiss(layout);
 }
 
 function dismissCard(btnOrCard) {
