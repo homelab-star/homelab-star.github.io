@@ -290,9 +290,8 @@ select:focus {
 }
 .page-view.active { display: flex; }
 
-/* Home / Reddit: scrollable center column */
-#pageHome,
-#pageReddit { flex-direction: row; align-items: stretch; }
+/* Home: scrollable center column */
+#pageHome { flex-direction: row; align-items: stretch; }
 
 /* Tasks / Notes: full-height column containers */
 #pageTasks,
@@ -690,34 +689,6 @@ select:focus {
 .news-card { position: relative; transition: transform .2s ease, opacity .2s ease; }
 .news-card:hover .news-dismiss-btn { opacity: 1; }
 .news-card--dismissed { transform: translateX(-110%) !important; opacity: 0; }
-
-/* ── Reddit Items ─────────────────────────────────────────────────── */
-.reddit-item {
-  padding: 9px 16px;
-  border-bottom: 1px solid var(--border);
-}
-.reddit-item:last-child { border-bottom: none; padding-bottom: 12px; }
-
-.reddit-item-inner {
-  max-width: 680px;
-}
-
-.reddit-title {
-  display: block;
-  font-size: .88rem;
-  line-height: 1.42;
-  margin-bottom: 3px;
-  color: var(--accent);
-}
-.reddit-title:hover { color: var(--accent-hi); text-decoration: underline; }
-
-.reddit-meta {
-  font-family: var(--font-mono);
-  font-size: .72rem;
-  color: var(--text3);
-}
-
-.ext-icon { font-size: .65rem; vertical-align: super; color: var(--text3); }
 
 /* ── Spinner keyframes ────────────────────────────────────────────── */
 @keyframes spin {
@@ -1728,12 +1699,6 @@ select:focus {
   .notes-empty-desktop { display: none; }
   .notes-empty-mobile  { display: block; }
 
-  /* Reddit tabs: right-edge fade hints at horizontal scroll */
-  .reddit-tabs {
-    -webkit-mask-image: linear-gradient(to right, black calc(100% - 44px), transparent 100%);
-    mask-image: linear-gradient(to right, black calc(100% - 44px), transparent 100%);
-  }
-
   /* Bookmark bar: collapse inner, show toggle button */
   :root { --bmark-h: 42px; }
   .bmark-toggle { display: flex; }
@@ -1804,7 +1769,6 @@ select:focus {
   .font-ctrl        { display: none; }
 
   .news-item { padding: 8px 0; }
-  .reddit-item { padding: 7px 0; }
 
   .show-more-btn { padding: 10px 0; font-size: .78rem; }
 

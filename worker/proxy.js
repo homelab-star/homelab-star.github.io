@@ -11,11 +11,6 @@
    - Origin allowlist for CORS (dashboard domain + localhost dev)
    - 5-minute Cloudflare edge cache (reduces origin hits)
 
-   Reddit:
-   - Uses OAuth client_credentials flow (no user login needed)
-   - Requires REDDIT_CLIENT_ID and REDDIT_CLIENT_SECRET env vars
-   - Register a "script" app at https://www.reddit.com/prefs/apps
-   - Token cached in-memory (~55 min, refreshed before expiry)
 ═══════════════════════════════════════════════════════════════════ */
 
 const ALLOWED_ORIGINS = [
@@ -42,21 +37,10 @@ const ALLOWED_HOSTS = [
   // ── Sports ───────────────────────────────────────────────────────
   'www.espn.com',
   'www.espncricinfo.com',
-  // ── Reddit (routed through OAuth) ────────────────────────────────
-  'www.reddit.com',
-  'old.reddit.com',
-  'oauth.reddit.com',
 ];
 
 const CACHE_TTL        = 300;    // 5 min edge cache
 const UPSTREAM_TIMEOUT = 10_000; // 10 s upstream timeout (client uses 8 s)
-
-const REDDIT_HOSTS   = new Set(['www.reddit.com', 'old.reddit.com']);
-const REDDIT_UA      = 'cloudflare:emmzy-dashboard:v1.0 (by /u/emmzy)';
-const REDDIT_TOKEN_URL = 'https://www.reddit.com/api/v1/access_token';
-
-let redditToken   = null;
-let redditTokenExp = 0;
 
 // GitHub Device Flow endpoints — proxied with CORS headers (no secret needed)
 const GH_DEVICE_CODE_URL = 'https://github.com/login/device/code';
@@ -98,18 +82,13 @@ export default {
     const allowed = ALLOWED_HOSTS.some(h => host === h || host.endsWith('.' + h));
     if (!allowed) return reply(`Host not in allowlist: ${host}`, 403, request);
 
-    // ── Reddit: route through OAuth API ─────────────────────────────
-    if (REDDIT_HOSTS.has(host)) {
-      return fetchRedditOAuth(targetUrl, request, env, ctx);
-    }
-
     // ── Check Cloudflare edge cache ──────────────────────────────────
     const cacheKey = new Request(targetUrl.toString(), { method: 'GET' });
     const cache    = caches.default;
     const cached   = await cache.match(cacheKey);
     if (cached) return addCORS(cached, request);
 
-    // ── Upstream fetch (non-Reddit) ─────────────────────────────────
+    // ── Upstream fetch ───────────────────────────────────────────────
     const ctrl  = new AbortController();
     const timer = setTimeout(() => ctrl.abort(), UPSTREAM_TIMEOUT);
 
@@ -154,90 +133,6 @@ export default {
     return addCORS(toCache, request);
   },
 };
-
-/* ── Reddit OAuth ────────────────────────────────────────────────── */
-
-async function getRedditToken(env) {
-  if (redditToken && Date.now() < redditTokenExp) return redditToken;
-
-  const clientId     = env.REDDIT_CLIENT_ID;
-  const clientSecret = env.REDDIT_CLIENT_SECRET;
-  if (!clientId || !clientSecret) return null;
-
-  const res = await fetch(REDDIT_TOKEN_URL, {
-    method: 'POST',
-    headers: {
-      'Authorization': 'Basic ' + btoa(`${clientId}:${clientSecret}`),
-      'Content-Type':  'application/x-www-form-urlencoded',
-      'User-Agent':    REDDIT_UA,
-    },
-    body: 'grant_type=client_credentials',
-  });
-
-  if (!res.ok) return null;
-  const data = await res.json();
-  if (!data.access_token) return null;
-
-  redditToken    = data.access_token;
-  redditTokenExp = Date.now() + (data.expires_in - 300) * 1000;
-  return redditToken;
-}
-
-async function fetchRedditOAuth(targetUrl, request, env, ctx) {
-  const cache    = caches.default;
-  const cacheKey = new Request(targetUrl.toString(), { method: 'GET' });
-  const cached   = await cache.match(cacheKey);
-  if (cached) return addCORS(cached, request);
-
-  const token = await getRedditToken(env);
-  if (!token) return reply('Reddit OAuth not configured — set REDDIT_CLIENT_ID and REDDIT_CLIENT_SECRET', 503, request);
-
-  const oauthUrl = targetUrl.toString()
-    .replace('https://www.reddit.com/', 'https://oauth.reddit.com/')
-    .replace('https://old.reddit.com/', 'https://oauth.reddit.com/');
-
-  const ctrl  = new AbortController();
-  const timer = setTimeout(() => ctrl.abort(), UPSTREAM_TIMEOUT);
-
-  let upstream;
-  try {
-    upstream = await fetch(oauthUrl, {
-      signal: ctrl.signal,
-      headers: {
-        'Authorization': `Bearer ${token}`,
-        'User-Agent':    REDDIT_UA,
-        'Accept':        'application/json',
-      },
-    });
-  } catch (err) {
-    return reply(`Reddit fetch failed: ${err.message}`, 502, request);
-  } finally {
-    clearTimeout(timer);
-  }
-
-  if (upstream.status === 401) {
-    redditToken = null;
-    redditTokenExp = 0;
-    return reply('Reddit token expired — retry', 502, request);
-  }
-
-  if (!upstream.ok) return reply(`Reddit upstream ${upstream.status}`, 502, request);
-
-  const body        = await upstream.arrayBuffer();
-  const contentType = upstream.headers.get('content-type') || 'application/json';
-
-  const toCache = new Response(body, {
-    status: 200,
-    headers: {
-      'Content-Type':  contentType,
-      'Cache-Control': `public, max-age=${CACHE_TTL}`,
-      'X-Proxied-By':  'emmzy-worker',
-    },
-  });
-
-  ctx.waitUntil(cache.put(cacheKey, toCache.clone()));
-  return addCORS(toCache, request);
-}
 
 /* ── GitHub Device Flow proxy ─────────────────────────────────────── */
 async function proxyGitHubPost(targetUrl, request) {
